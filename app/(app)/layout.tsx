@@ -1,7 +1,7 @@
 import AppSideBar from '@/components/app-sidebar'
 import { ROUTE_ACCESS, ROUTE_LABELS } from '@/lib/access'
 import { cookies } from 'next/headers'
-import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar'
+import { SidebarProvider, SidebarTrigger, SidebarInset, SIDEBAR_COOKIE_NAME } from '@/components/ui/sidebar'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }))
 
   const cookieStore = await cookies()
-  const defaultOpen = cookieStore.get('sidebar-state')?.value !== 'false'
+  const defaultOpen = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value !== 'false'
 
   if (!data?.claims) return <>{children}</>
 

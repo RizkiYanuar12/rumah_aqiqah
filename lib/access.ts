@@ -1,16 +1,17 @@
 export const ROUTE_ACCESS: Record<string, string[]> = {
     seo: ['/closing', '/orders'],
-    cso: ['/closing', '/orders', '/inventory/cabang', '/resep'],
+    cso: ['/closing', '/orders', '/inventory/cabang', '/inventory/pengajuan', '/resep'],
     finance: ['/orders'],
-    inventory: ['/inventory/cabang'],
+    inventory: ['/inventory/pengajuan', '/inventory/stock'],
     branch_manager: ['/orders'],
 }
 
-// Labeling Nama di UI
 export const ROUTE_LABELS: Record <string, string> = {
     '/closing': 'Closing',
     '/orders': 'Pesanan',
     '/inventory/cabang': 'Inventory Cabang',
+    '/inventory/pengajuan': 'Pengajuan Restock',
+    '/inventory/stock': 'Stock',
     '/resep': 'Resep',
 }
 
@@ -21,7 +22,7 @@ export const HOME_BY_ROLE: Record<string, string> = {
     seo: '/closing',
     cso: '/orders',
     finance: '/orders',
-    inventory: '/inventory/cabang',
+    inventory: '/inventory/stock',
     branch_manager: '/orders'
 }
 

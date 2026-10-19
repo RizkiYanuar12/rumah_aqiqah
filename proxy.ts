@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { publicRoute, HOME_BY_ROLE, canAccess } from '@/lib/access';
 
 export async function proxy(request: NextRequest) {
+    // Setiap setAll harus membangun ulang response: session token hanya sampai
+    // browser bila cookie ditulis ke response yang akhirnya dikembalikan.
     let supabaseResponse = NextResponse.next({
         request,
     })
@@ -37,7 +39,6 @@ export async function proxy(request: NextRequest) {
     const path = request.nextUrl.pathname
     const API = path.startsWith('/api')
 
-    // Belum Login
     if (!user) {
         if (publicRoute(path)) return supabaseResponse
 
@@ -50,20 +51,20 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
-    // Sudah login
-    // Ambil role user
     const role = user.app_metadata?.role as string | undefined
 
+    // Beranda per role; role tak dikenal -> /forbidden
     if (path === '/') {
         const url = request.nextUrl.clone()
         url.pathname = (role && HOME_BY_ROLE[role]) || '/forbidden'
         return NextResponse.redirect(url)
     }
 
-    // API dijaga requireRole() masing-masing route
+    // Guard sebenarnya ada di requireRole() tiap route API; proxy di sini
+    // hanya memastikan user punya sesi, bukan mengotorisasi per-endpoint.
     if (API || publicRoute(path)) return supabaseResponse
 
-    // Halaman bukan untuk role yang mengakses
+    // Fallback terakhir: role ada, tapi rute-nya tidak di ROUTE_ACCESS.
     if (!canAccess(role, path)) {
         const url = request.nextUrl.clone()
         url.pathname = '/forbidden'
@@ -75,7 +76,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
     matcher: [
-        // menentukan asset yang tidak perlu melakukan authentication
+        // Aset statis dilewati: tidak punya sesi dan tidak butuh redirect,
+        // jadi middleware tidak perlu dijalankan untuk tiap file gambar/CSS/JS.
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|gif|webp)$).*)',
     ],
 }

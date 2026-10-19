@@ -16,6 +16,7 @@
     "cn": "^0.4.0",
     "lucide-react": "^1.52.0",
     "next": "16.3.8",
+    "nodejs-nicepay": "^1.1.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",

@@ -101,6 +101,7 @@ group by order_id;
 drop function if exists lokasi_order(uuid);
 drop function if exists barang_masuk(text, numeric, numeric);
 drop function if exists barang_masuk(text, text, numeric, numeric);
+drop function if exists barang_masuk(text, text, numeric, numeric, date);
 -- nama lama (tidak pernah dijalankan di prod, tapi aman bila sudah terlanjur ada):
 drop function if exists susun_order(uuid, jsonb);
 drop function if exists keluarkan_barang(uuid);
@@ -122,11 +123,14 @@ $$;
 
 -- 3b. barang masuk di SATU lokasi + HPP rata-rata lokasi itu
 --     HPP baru = (stok lama x HPP lama + masuk x harga beli) / (stok lama + masuk)
+--     p_tanggal_exp = tanggal kedaluwarsa batch ini (opsional, untuk audit pangan).
+--     Satu baris MASUK = satu batch; stok tetap agregat per SKU (tanpa FEFO).
 create function barang_masuk(
   p_id_lokasi  text,
   p_sku        text,
   p_qty        numeric,
-  p_harga_beli numeric
+  p_harga_beli numeric,
+  p_tanggal_exp date default null
 ) returns void
 language plpgsql as $$
 begin
@@ -141,21 +145,21 @@ begin
   end if;
 
   -- baris stok dibuat otomatis kalau barang ini belum pernah masuk di lokasi tsb
-  insert into stok_lokasi (id_lokasi, sku, stock, hpp_average)
+  insert into stock_lokasi (id_lokasi, sku, stock, hpp_average)
   values (p_id_lokasi, p_sku, p_qty, p_harga_beli)
   on conflict (id_lokasi, sku) do update
-    set hpp_average = (stok_lokasi.stock * stok_lokasi.hpp_average + p_qty * p_harga_beli)
-                      / (stok_lokasi.stock + p_qty),
-        stock       = stok_lokasi.stock + p_qty;
+    set hpp_average = (stock_lokasi.stock * stock_lokasi.hpp_average + p_qty * p_harga_beli)
+                      / (stock_lokasi.stock + p_qty),
+        stock       = stock_lokasi.stock + p_qty;
 
-  insert into mutasi_stock (id_lokasi, sku, jenis, jumlah, harga_satuan)
-  values (p_id_lokasi, p_sku, 'MASUK', p_qty, p_harga_beli);
+  insert into mutasi_stock (id_lokasi, sku, jenis, jumlah, harga_satuan, tanggal_exp)
+  values (p_id_lokasi, p_sku, 'MASUK', p_qty, p_harga_beli, p_tanggal_exp);
 end $$;
 
 
 -- 3c. susun_rincian_order: mengisi rincian sebuah order.
 --     Header orders dibuat lebih dulu oleh aplikasi.
---     HPP barang diambil dari stok_lokasi milik lokasi order
+--     HPP barang diambil dari stock_lokasi milik lokasi order
 --     (barang yang belum punya stok di lokasi itu dihitung HPP 0).
 create function susun_rincian_order(p_order_id uuid, p_baris jsonb)
 returns void
@@ -207,7 +211,7 @@ begin
     insert into order_items (order_id, id_baris, sku, qty, hpp_snapshot)
     select p_order_id, v_baris, pi.sku, pi.qty * v_qty, coalesce(sl.hpp_average, 0)
     from paket_items pi
-    left join stok_lokasi sl
+    left join stock_lokasi sl
            on sl.sku = pi.sku and sl.id_lokasi = v_lokasi
     where pi.id_paket = v_paket.id;
 
@@ -223,7 +227,7 @@ begin
            oi.qty_per_porsi * coalesce(v_paket.porsi, 1) * v_qty,
            coalesce(sl.hpp_average, 0), oi.id_olahan
     from olahan_item oi
-    left join stok_lokasi sl
+    left join stock_lokasi sl
            on sl.sku = oi.sku and sl.id_lokasi = v_lokasi
     where oi.id_olahan in (select jsonb_array_elements_text(v_olh)::uuid);
   end loop;
@@ -302,14 +306,14 @@ begin
       group by sku having sum(qty) > 0
     ) x
     where not exists (
-      select 1 from stok_lokasi sl
+      select 1 from stock_lokasi sl
       where sl.id_lokasi = v_lokasi and sl.sku = x.sku
     )
   ) then
     raise exception 'Ada barang yang belum punya stok di lokasi %', v_lokasi;
   end if;
 
-  update stok_lokasi sl
+  update stock_lokasi sl
   set stock = sl.stock - x.qty
   from (
     select sku, sum(qty) as qty
@@ -338,7 +342,7 @@ end $$;
 --    tidak diubah di sini, karena sebagian mungkin dipakai bagian lain.
 -- ---------------------------------------------------------------------
 alter table lokasi             enable row level security;
-alter table stok_lokasi        enable row level security;
+alter table stock_lokasi        enable row level security;
 alter table paket_items        enable row level security;
 alter table olahan             enable row level security;
 alter table olahan_item        enable row level security;
@@ -348,13 +352,14 @@ alter table pengeluaran_gudang enable row level security;
 
 revoke execute on function lokasi_order(uuid)                          from public, anon, authenticated;
 revoke execute on function barang_masuk(text, text, numeric, numeric)  from public, anon, authenticated;
+revoke execute on function barang_masuk(text, text, numeric, numeric, date)  from public, anon, authenticated;
 revoke execute on function susun_rincian_order(uuid, jsonb)            from public, anon, authenticated;
 revoke execute on function keluar_barang_cabang(uuid, uuid)            from public, anon, authenticated;
 
 
 -- ---------------------------------------------------------------------
 -- 5. TERAKHIR, PERMANEN: hapus kolom stok lama di inventory
---    Setelah ini stok, HPP, dan batas minimum HANYA ada di stok_lokasi.
+--    Setelah ini stok, HPP, dan batas minimum HANYA ada di stock_lokasi.
 --    Jalankan hanya kalau bagian 1-4 di atas berhasil tanpa error.
 -- ---------------------------------------------------------------------
 alter table inventory
@@ -487,5 +492,5 @@ for each row execute function public.trg_orders_batal_stok();
 -- ---------------------------------------------------------------------
 -- Stok masuk di PUSAT (ganti sku dan harga dengan data asli):
 -- select barang_masuk('PUSAT', '<SKU>', 100, 1500);
--- select * from v_stok where sku = '<SKU>';
+-- select * from v_stock where sku = '<SKU>';
 --   -> baris PUSAT dan BDG-RAYA terpisah; stok masing-masing tidak saling memengaruhi

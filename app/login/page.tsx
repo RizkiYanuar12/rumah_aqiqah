@@ -34,7 +34,6 @@ export default function LoginPage(){
 
     return (
         <div className="relative flex min-h-dvh flex-col overflow-hidden bg-[#4a0f30] text-white">
-            {/* Top bar */}
             <header className="z-10 flex items-center justify-between px-6 pt-5 sm:px-10">
                 <div className="flex h-9 items-center gap-2">
                     {logoOk ? (
@@ -58,7 +57,6 @@ export default function LoginPage(){
                 </span>
             </header>
 
-            {/* Form */}
             <main className="z-10 mx-auto flex w-full max-w-xs flex-1 flex-col items-center justify-center pb-40">
                 <div className="relative mb-6 flex h-20 w-20 items-center justify-center">
                     {logoOk ? (
@@ -141,7 +139,7 @@ export default function LoginPage(){
                 </form>
             </main>
 
-            {/* Waves */}
+            {/* Dekorasi gelombang, aria-hidden: bukan konten. */}
             <svg
                 aria-hidden
                 viewBox="0 0 1440 220"
@@ -153,7 +151,6 @@ export default function LoginPage(){
                 <path d="M0,180 C280,140 560,200 820,175 C1080,150 1260,185 1440,170 L1440,220 L0,220 Z" fill="#f7f1e6" />
             </svg>
 
-            {/* Footer */}
             <footer className="z-10 flex items-end justify-between px-6 pb-5 text-[#4a0f30] sm:px-10">
                 <span className="text-sm font-semibold">↗ Rumah Aqiqah</span>
                 <span className="hidden text-[11px] opacity-60 sm:block">RAMS · Sistem internal</span>

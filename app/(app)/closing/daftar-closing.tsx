@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { tenggatLabel, statusClosing } from '@/lib/closing'
 import { fmtDate, fmtRp } from '@/lib/format'
-import { CircleCheck, Clock, Plus, UserPlus, Users, XCircle } from 'lucide-react'
+import { ChevronDown, ChevronUp, CircleCheck, Clock, Plus, UserPlus, Users, XCircle } from 'lucide-react'
 
 export type OrderOlahan = { nama_olahan: string; kategori: string }
 
@@ -75,6 +75,17 @@ const closingTotal = (l: Closing) => (l.orders ?? []).reduce((s, o) => s + (Numb
 
 const closingEmail = (l: Closing, orders: Order[]) =>
   l.email_customer ?? l.email ?? orders[0]?.customer_email ?? null
+
+// Tenggat terburuk per closing (late > now > soon) supaya tenggat overdue
+// terlihat tanpa harus membuka baris.
+const worstTenggat = (orders: Order[]) =>
+  orders.reduce<{ tone: string; text: string } | null>((acc, o) => {
+    const t = tenggatLabel(o.waktu_kirim)
+    if (t.tone === 'none') return acc
+    const rank = { late: 3, now: 2, soon: 1 } as Record<string, number>
+    if (!acc || (rank[t.tone] ?? 0) > (rank[acc.tone] ?? 0)) return { tone: t.tone, text: t.text }
+    return acc
+  }, null)
 
 export default function DaftarClosing({
   initialClosing,
@@ -163,21 +174,37 @@ export default function DaftarClosing({
   }, [aktif, closing, filter, sort, query, namaSEO])
 
   const stats = [
-    { label: 'Total closing', value: counts.total, icon: Users, chip: 'bg-[#4a0f30] text-white' },
-    { label: 'Baru', value: counts.BARU, icon: UserPlus, chip: 'bg-[#c2185b]/10 text-[#c2185b]' },
-    { label: 'Diproses', value: counts.DIPROSES, icon: Clock, chip: 'bg-[#e8b10c]/20 text-[#4a0f30]' },
-    { label: 'Selesai', value: counts.SELESAI, icon: CircleCheck, chip: 'bg-green-600/10 text-green-700' },
-    { label: 'Batal', value: counts.BATAL, icon: XCircle, chip: 'bg-red-500/10 text-red-600' },
+    { label: 'Total closing', value: counts.total, icon: Users, chip: 'bg-white/15 text-white', bar: 'bg-[#e8b10c]', hero: true },
+    { label: 'Baru', value: counts.BARU, icon: UserPlus, chip: 'bg-[#c2185b]/10 text-[#c2185b]', bar: 'bg-[#c2185b]', hero: false },
+    { label: 'Diproses', value: counts.DIPROSES, icon: Clock, chip: 'bg-[#e8b10c]/20 text-[#4a0f30]', bar: 'bg-[#e8b10c]', hero: false },
+    { label: 'Selesai', value: counts.SELESAI, icon: CircleCheck, chip: 'bg-green-600/10 text-green-700', bar: 'bg-green-600', hero: false },
+    { label: 'Batal', value: counts.BATAL, icon: XCircle, chip: 'bg-red-500/10 text-red-600', bar: 'bg-red-500', hero: false },
+  ]
+
+  const tabs = [
+    { key: 'semua', label: 'Semua', n: counts.total },
+    { key: 'BARU', label: 'Baru', n: counts.BARU },
+    { key: 'DIPROSES', label: 'Diproses', n: counts.DIPROSES },
+    { key: 'SELESAI', label: 'Selesai', n: counts.SELESAI },
+    { key: 'BATAL', label: 'Batal', n: counts.BATAL },
   ]
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-light tracking-wide text-[#c2185b]">Closing</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-              {counts.total} Closing · {counts.BARU} Baru · {counts.DIPROSES} Diproses
-          </p>
+          <h1 className="bg-gradient-to-r from-[#c2185b] to-[#e8b10c] bg-clip-text text-3xl font-light tracking-wide text-transparent">
+            Closing
+          </h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="tabular-nums">{counts.total} closing</span>
+            <span className="rounded-full bg-[#c2185b]/10 px-2 py-0.5 text-[13px] font-medium text-[#c2185b] tabular-nums">
+              {counts.BARU} baru
+            </span>
+            <span className="rounded-full bg-[#e8b10c]/20 px-2 py-0.5 text-[13px] font-medium text-[#4a0f30] tabular-nums">
+              {counts.DIPROSES} diproses
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="urut" className="text-sm text-muted-foreground">Urutkan</label>
@@ -201,80 +228,105 @@ export default function DaftarClosing({
 
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-5">
         {stats.map((s) => (
-          <Card key={s.label} size="sm">
+          <Card
+            key={s.label}
+            size="sm"
+            className={`relative overflow-hidden ${s.hero ? 'bg-[#4a0f30] text-white' : ''}`}
+          >
+            <span aria-hidden className={`absolute inset-x-0 top-0 h-0.5 ${s.bar}`} />
             <CardContent className="flex items-center gap-2.5">
               <span aria-hidden className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${s.chip}`}>
                 <s.icon className="size-5" />
               </span>
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-xl font-semibold tracking-tight tabular-nums">{s.value}</div>
-                <div className="truncate text-[13px] font-medium text-muted-foreground">{s.label}</div>
+                <div
+                  className={`truncate text-[13px] font-medium ${s.hero ? 'text-white/70' : 'text-muted-foreground'}`}
+                >
+                  {s.label}
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid items-start gap-2.5 md:grid-cols-2">
-        <Card size="sm">
+      <div className="grid items-start gap-2.5 md:grid-cols-[1fr_1.6fr]">
+        <Card size="sm" className="bg-[#e8b10c]/15">
           <CardContent>
-            <p className="text-[13px] font-medium text-muted-foreground">
+            <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
               Ekor terjual · {namaLokasi}
             </p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+            <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">
               {statSEO.reduce((s, x) => s + x.ekor, 0)}{' '}
               <span className="text-sm font-medium text-muted-foreground">ekor</span>
             </p>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
-              dari {counts.total} closing aktif
-            </p>
+            <p className="mt-1 text-[13px] text-muted-foreground">dari {counts.total} closing aktif</p>
           </CardContent>
         </Card>
         <Card size="sm">
           <CardContent>
-            <p className="text-[13px] font-medium text-muted-foreground">
+            <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
               Omset · {namaLokasi}
             </p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
-              {fmtRp(statSEO.reduce((s, x) => s + x.pendapatan,  0))}
+            <p className="mt-1.5 text-3xl font-semibold tracking-tight text-[#c2185b] tabular-nums">
+              {fmtRp(statSEO.reduce((s, x) => s + x.pendapatan, 0))}
             </p>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
-              dari {counts.total} closing aktif
-            </p>
+            <p className="mt-1 text-[13px] text-muted-foreground">dari {counts.total} closing aktif</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <label htmlFor="cari" className="sr-only">Cari closing</label>
         <input
           id="cari"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Cari nama, HP, ID, SEO…"
-          className="h-9 min-w-52 flex-1 rounded-lg border border-input bg-transparent px-3 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none sm:max-w-xs"
+          className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none sm:max-w-xs"
         />
-        <label htmlFor="status" className="text-sm text-muted-foreground">Status</label>
-        <select
-          id="status"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="h-9 rounded-lg border border-input bg-transparent px-2 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+        <div
+          role="tablist"
+          aria-label="Filter status closing"
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 sm:mx-0 sm:px-0"
         >
-            <option value="semua">Semua</option>
-            <option value="BARU">Baru</option>
-            <option value="DIPROSES">Diproses</option>
-            <option value="SELESAI">Selesai</option>
-            <option value="BATAL">Batal</option>
-        </select>
+          {tabs.map((t) => {
+            const active = filter === t.key
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilter(t.key)}
+                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[15px] whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none ${
+                  active
+                    ? 'bg-[#c2185b] font-semibold text-white shadow-sm'
+                    : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                {t.label}
+                <span className={`text-[13px] tabular-nums ${active ? 'text-white/80' : 'text-muted-foreground/70'}`}>
+                  {t.n}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {rows.length ? (
+        <>
+          <p className="-mt-1 text-sm text-muted-foreground">
+            Menampilkan {rows.length} dari {closing.length} closing ·{' '}
+            {sort === 'baru' ? 'terbaru dulu' : 'terlama dulu'}
+          </p>
         <Card className="overflow-hidden py-0">
           <div className="overflow-x-auto">
           <table className="w-full min-w-240 text-left text-[15px]">
             <thead>
-              <tr className="border-b bg-muted/50 text-[11px] tracking-widest text-muted-foreground uppercase">
+              <tr className="sticky top-0 z-10 border-b bg-[#4a0f30]/5 text-[11px] tracking-widest text-muted-foreground uppercase backdrop-blur-sm">
                 <th scope="col" className="px-4 py-3 font-medium">ID</th>
                 <th scope="col" className="px-4 py-3 font-medium">Customer</th>
                 <th scope="col" className="px-4 py-3 font-medium">No. HP</th>
@@ -292,16 +344,23 @@ export default function DaftarClosing({
             const email = closingEmail(l, orders)
             // Status tampil = derivasi order (kolom DB tidak dibaca).
             const st = statusClosing(orders)
+            // Batal tidak punya tenggat nyata — jangan teas deadline-nya.
+            const tenggatBaris = st === 'BATAL' ? null : worstTenggat(orders)
             return (
               <Fragment key={l.id}>
-              <tr key={l.id} className="border-b last:border-0 hover:bg-muted/30">
+              <tr className="border-b last:border-0 odd:bg-muted/20 hover:bg-muted/40">
                 <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground" title={l.id}>{l.id.slice(0, 8)}</td>
                 <td className="px-4 py-3 font-semibold break-all">{l.nama_customer}</td>
                 <td className="px-4 py-3 whitespace-nowrap tabular-nums">{l.no_hp}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block rounded border px-2 py-0.5 text-[11px] font-bold tracking-widest uppercase whitespace-nowrap ${PILL[st]}`}>
+                  <span className={`inline-block rounded border px-2 py-0.5 text-xs font-bold tracking-widest uppercase whitespace-nowrap ${PILL[st]}`}>
                     {st}
                   </span>
+                  {tenggatBaris && (
+                    <span className={`ml-1.5 inline-block rounded border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${PILL_TENGGAT[tenggatBaris.tone]}`}>
+                      {tenggatBaris.text}
+                    </span>
+                  )}
                 </td>
                 <td className="max-w-44 truncate px-4 py-3 text-muted-foreground" title={namaSEO[l.created_by] ?? ''}>
                   {namaSEO[l.created_by] ?? l.created_by.slice(0, 8)}
@@ -314,10 +373,12 @@ export default function DaftarClosing({
                       type="button"
                       onClick={() => setOpen(isOpen ? null : l.id)}
                       aria-expanded={isOpen}
-                      aria-label={isOpen ? 'Tutup rincian' : 'Buka rincian'}
-                      className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#e8b10c]/60 px-3 text-[15px] font-medium text-[#4a0f30] hover:bg-[#e8b10c]/10 focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+                      aria-label={isOpen ? `Tutup rincian ${l.nama_customer}` : `Buka rincian ${l.nama_customer}`}
+                      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[#e8b10c]/60 px-3 text-[15px] font-medium text-[#4a0f30] hover:bg-[#e8b10c]/10 focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
                     >
-                      {orders.length} pesanan {isOpen ? '▴' : '▾'}
+                      Rincian
+                      <span className="tabular-nums">{orders.length}</span>
+                      {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                     </button>
                   ) : (
                     <span className="text-sm text-muted-foreground">—</span>
@@ -325,14 +386,13 @@ export default function DaftarClosing({
                 </td>
               </tr>
               {isOpen && (
-              <tr key={`${l.id}-detail`} className="border-b bg-muted/20 last:border-0">
+              <tr className="border-b bg-muted/20 last:border-0">
                 <td colSpan={8} className="px-4 py-4">
-                  <div className="grid gap-x-8 gap-y-2 text-[15px] sm:grid-cols-2">
-                    <p><span className="text-[11px] tracking-widest text-muted-foreground uppercase">Email</span><br />{email ?? '—'}</p>
-                    <p><span className="text-[11px] tracking-widest text-muted-foreground uppercase">Alamat</span><br />{l.alamat}</p>
-                    <p><span className="text-[11px] tracking-widest text-muted-foreground uppercase">Sumber</span><br />{l.sumber_informasi}</p>
-                    <p><span className="text-[11px] tracking-widest text-muted-foreground uppercase">Jenis</span><br />{l.jenis_customer ?? '—'}</p>
-                    <p><span className="text-[11px] tracking-widest text-muted-foreground uppercase">Masuk</span><br /><span className="tabular-nums">{fmtDate(l.created_at)}</span></p>
+                  <div className="grid gap-x-8 gap-y-3 text-[15px] sm:grid-cols-2 lg:grid-cols-4">
+                    <p className="min-w-0"><span className="block text-xs tracking-wide text-muted-foreground uppercase">Email</span><span className="break-all">{email ?? '—'}</span></p>
+                    <p className="min-w-0"><span className="block text-xs tracking-wide text-muted-foreground uppercase">Alamat</span><span className="line-clamp-2">{l.alamat}</span></p>
+                    <p className="min-w-0"><span className="block text-xs tracking-wide text-muted-foreground uppercase">Jenis</span>{l.jenis_customer ?? '—'}</p>
+                    <p className="min-w-0"><span className="block text-xs tracking-wide text-muted-foreground uppercase">Masuk</span><span className="tabular-nums">{fmtDate(l.created_at)}</span></p>
                   </div>
                   <ul className="mt-3 space-y-3 border-t border-dashed pt-3">
                     {orders.map((o) => {
@@ -341,7 +401,7 @@ export default function DaftarClosing({
                       <li key={o.id_pesanan} className="text-[15px]">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium tabular-nums">{fmtDate(o.tanggal_transaksi ?? o.created_at)}</span>
-                          <span className="inline-block rounded border border-input px-2 py-0.5 text-[11px] tracking-widest uppercase">
+                          <span className="inline-block rounded border border-input px-2 py-0.5 text-xs tracking-widest uppercase">
                             {o.status ?? '—'}
                           </span>
                           <span className="text-muted-foreground">bayar: {o.tipe_pembayaran ?? '—'} · via {o.metode_pembayaran ?? '—'}</span>
@@ -351,7 +411,7 @@ export default function DaftarClosing({
                           Kirim: {o.waktu_kirim ? fmtDate(o.waktu_kirim) : '—'}
                           {o.waktu_tiba ? ` · Tiba: ${fmtDate(o.waktu_tiba)}` : ''}
                           {' · '}
-                          <span className={`inline-block rounded border px-2 py-0.5 text-[11px] font-bold tracking-widest uppercase ${PILL_TENGGAT[tg.tone]}`}>
+                          <span className={`inline-block rounded border px-2 py-0.5 text-xs font-bold tracking-widest uppercase ${PILL_TENGGAT[tg.tone]}`}>
                             {tg.text}
                           </span>
                           {' · '}
@@ -373,6 +433,7 @@ export default function DaftarClosing({
           </table>
           </div>
         </Card>
+        </>
       ) : (
         <Card>
           <CardContent className="px-4 py-10 text-center">

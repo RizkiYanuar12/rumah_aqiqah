@@ -172,7 +172,7 @@ export default function DaftarInventory({
           <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
             Inventory Cabang
           </h1>
-          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-linear-to-r from-[#c2185b] to-[#e8b10c]" />
           <p className="mt-3 text-sm text-muted-foreground">
             {namaLokasi} · {rows.length} barang
             {(counts.low > 0 || counts.habis > 0) && (
@@ -282,7 +282,7 @@ export default function DaftarInventory({
                               type="button"
                               onClick={() => bukaPesan(it)}
                               aria-expanded={terbuka}
-                              className={`inline-flex min-h-9 min-w-[88px] items-center justify-center rounded-lg border px-3 text-[15px] whitespace-nowrap focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none ${
+                              className={`inline-flex min-h-9 min-w-22 items-center justify-center rounded-lg border px-3 text-[15px] whitespace-nowrap focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none ${
                                 diKeranjang
                                   ? 'border-[#c2185b] bg-[#c2185b] font-semibold text-white hover:bg-[#a3144c]'
                                   : 'border-[#e8b10c] text-[#4a0f30] hover:bg-[#e8b10c]/10'
@@ -450,7 +450,7 @@ export default function DaftarInventory({
                 type="button"
                 disabled={busy === 'pesan' || !keranjang.length}
                 onClick={ajukanKeranjang}
-                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#e8b10c] px-4 text-[15px] font-bold !text-[#4a0f30] transition-colors hover:bg-[#f5c234] focus-visible:ring-2 focus-visible:ring-[#4a0f30] focus-visible:outline-none disabled:opacity-50"
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#e8b10c] px-4 text-[15px] font-bold text-[#4a0f30]! transition-colors hover:bg-[#f5c234] focus-visible:ring-2 focus-visible:ring-[#4a0f30] focus-visible:outline-none disabled:opacity-50"
               >
                 {busy === 'pesan' ? 'Mengajukan…' : 'Ajukan Restock'}
               </button>

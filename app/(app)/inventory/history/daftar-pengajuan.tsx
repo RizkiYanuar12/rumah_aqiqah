@@ -158,7 +158,7 @@ export default function DaftarPengajuan({
         <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
           History Pengajuan
         </h1>
-        <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+        <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-linear-to-r from-[#c2185b] to-[#e8b10c]" />
         <p className="mt-3 text-sm text-muted-foreground">
           {mode === 'cabang'
             ? `${namaLokasi} · pembuatan pengajuan baru di Inventory Cabang · ${nDiajukan} menunggu`
@@ -261,7 +261,7 @@ export default function DaftarPengajuan({
                                          rows={3}
                                          autoFocus
                                          placeholder="Contoh: stok pusat sedang kosong"
-                                         className="min-h-[72px] w-full rounded-lg border border-input bg-transparent px-3 py-2 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+                                         className="min-h-18 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
                                        />
                                        <div className="flex justify-end gap-2">
                                          <button

@@ -212,7 +212,7 @@ export default function DaftarClosing({
           <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
             Closing
           </h1>
-          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-linear-to-r from-[#c2185b] to-[#e8b10c]" />
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
             Lead yang sudah closing, siap diteruskan ke CSO dan diproses menjadi order.
           </p>
@@ -349,7 +349,7 @@ export default function DaftarClosing({
 
       {rows.length ? (
         <Card className="overflow-hidden border border-[#4a0f30]/10 py-0 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#4a0f30]/10 bg-[#4a0f30]/[0.03] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#4a0f30]/10 bg-[#4a0f30]/3 px-4 py-3">
             <p className="text-[11px] font-semibold tracking-[0.16em] text-[#4a0f30]/70 uppercase">
               Daftar closing
             </p>
@@ -358,9 +358,9 @@ export default function DaftarClosing({
             </p>
           </div>
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-left text-[14px]">
+          <table className="w-full min-w-250 text-left text-[14px]">
             <thead>
-              <tr className="sticky top-0 z-10 border-b bg-[#4a0f30]/[0.04] text-[11px] tracking-[0.14em] text-[#4a0f30]/60 uppercase backdrop-blur-sm">
+              <tr className="sticky top-0 z-10 border-b bg-[#4a0f30]/4 text-[11px] tracking-[0.14em] text-[#4a0f30]/60 uppercase backdrop-blur-sm">
                 <th scope="col" className="px-4 py-3 font-medium">ID</th>
                 <th scope="col" className="px-4 py-3 font-medium">Customer</th>
                 <th scope="col" className="px-4 py-3 font-medium">No. HP</th>
@@ -382,10 +382,10 @@ export default function DaftarClosing({
             const tenggatBaris = st === 'BATAL' ? null : worstTenggat(orders)
             return (
               <Fragment key={l.id}>
-              <tr className={`border-b border-[#4a0f30]/10 transition-colors last:border-0 ${isOpen ? 'bg-[#e8b10c]/[0.07]' : 'odd:bg-[#4a0f30]/[0.015] hover:bg-[#c2185b]/[0.035]'}`}>
+              <tr className={`border-b border-[#4a0f30]/10 transition-colors last:border-0 ${isOpen ? 'bg-[#e8b10c]/[0.07]' : 'odd:bg-[#4a0f30]/1.5 hover:bg-[#c2185b]/[0.035]'}`}>
                 <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground/80" title={String(l.id)}>#{l.id}</td>
                 <td className="px-4 py-3">
-                  <div className="flex min-w-0 max-w-[280px] items-center gap-2.5">
+                  <div className="flex min-w-0 max-w-70 items-center gap-2.5">
                     <span
                       aria-hidden
                       className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#c2185b]/10 text-[11px] font-bold tracking-wide text-[#c2185b]"
@@ -433,7 +433,7 @@ export default function DaftarClosing({
                 </td>
               </tr>
               {isOpen && (
-              <tr className="border-b border-[#e8b10c]/25 bg-[#e8b10c]/[0.04] last:border-0">
+              <tr className="border-b border-[#e8b10c]/25 bg-[#e8b10c]/4 last:border-0">
                 <td colSpan={8} className="border-l-2 border-[#e8b10c] px-4 py-4">
                   <div className="grid gap-x-8 gap-y-3 text-[15px] sm:grid-cols-2 lg:grid-cols-4">
                     <p className="min-w-0"><span className="block text-xs tracking-wide text-muted-foreground uppercase">Email</span><span className="break-all">{email ?? '—'}</span></p>

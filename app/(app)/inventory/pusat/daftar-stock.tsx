@@ -149,7 +149,7 @@ export default function DaftarStock({
           <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
             Stock Pusat
           </h1>
-          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-linear-to-r from-[#c2185b] to-[#e8b10c]" />
           <p className="mt-3 text-sm text-muted-foreground">
             Gudang Pusat · {items.length} barang
             {(counts.low > 0 || counts.habis > 0) && (

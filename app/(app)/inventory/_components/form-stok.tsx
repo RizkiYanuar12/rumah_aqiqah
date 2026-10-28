@@ -84,7 +84,7 @@ function InputSaran({
         className={`${inputCls} w-full`}
       />
       {tampil && (
-        <ul className="absolute z-10 mt-1 max-h-[120px] w-full overflow-y-auto overscroll-contain rounded-lg border border-input bg-background shadow-lg touch-pan-y">
+        <ul className="absolute z-10 mt-1 max-h-30 w-full overflow-y-auto overscroll-contain rounded-lg border border-input bg-background shadow-lg touch-pan-y">
           {!daftar.length && (
             <li className="px-3 py-2 text-[15px] text-muted-foreground">Tidak ada barang cocok — cek ejaan</li>
           )}

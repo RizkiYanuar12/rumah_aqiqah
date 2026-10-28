@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { updateOrderRincian, type AddonIn, type InventoryIn } from '@/lib/orders'
+import {type AddonIn, type InventoryIn } from '@/lib/orders/types'
+import { updateOrderRincian } from '@/lib/orders/update'
 
 const TERMINAL = ['BATAL']
-
 // SEO + CSO. Status tidak tersentuh (tetap via PATCH /status oleh CSO/BM).
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiRole(['seo', 'cso'])

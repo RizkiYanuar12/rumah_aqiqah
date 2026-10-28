@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/auth'
+import { requireRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import DaftarInventory from './daftar-inventory'
 
@@ -6,9 +6,11 @@ export default async function InventoryCabangPage() {
   const { idLokasi } = await requireRole(['cso'])
   if (!idLokasi) {
     return (
-      <div className="mx-auto w-full max-w-6xl">
-        <h1 className="text-3xl font-light tracking-wide text-[#c2185b]">Inventory Cabang</h1>
-        <p className="mt-2 text-sm text-red-700">Akun belum punya lokasi.</p>
+      <div className="mx-auto w-full max-w-[1600px]">
+        <p className="text-[11px] font-semibold tracking-[0.2em] text-[#c2185b] uppercase">Inventory</p>
+        <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">Inventory Cabang</h1>
+        <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+        <p className="mt-3 text-sm text-red-700">Akun belum punya lokasi.</p>
       </div>
     )
   }

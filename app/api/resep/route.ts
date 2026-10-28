@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { listResep, addResep, updateResepQty, deleteResep } from '@/lib/resep'
 

@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/auth'
+import { requireRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { listResep } from '@/lib/resep'
 import FormClosingBaru from './form-closing-baru'
@@ -20,6 +20,9 @@ export default async function TambahClosingPage() {
       .eq('is_active', true)
       .order('nama_olahan'),
     listResep(admin, idLokasi ?? undefined),
+    admin
+      .from('lokasi')
+      .select('nama, jenis')
   ])
   const resep = (grupResep ?? []).map((g) => ({
     id_paket: g.id_paket,
@@ -31,6 +34,5 @@ export default async function TambahClosingPage() {
       stock: idLokasi ? r.stock : null,
     })),
   }))
-
   return <FormClosingBaru paket={paket ?? []} olahan={olahan ?? []} resep={resep} hasLokasi={Boolean(idLokasi)} />
 }

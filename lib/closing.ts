@@ -22,7 +22,9 @@ export const JENIS_CUSTOMER = [
 
 export const STATUS = ['BARU', 'DIPROSES', 'SELESAI', 'BATAL'] as const
 
-export const NO_HP = /^\+62\d{9,13}$/
+export const NO_HP = /^08\d{8,10}$/
+
+export const KODE_POS = /^\d{5}$/
 
 export const isJenisCustomerValid = (jenisCustomer: unknown): jenisCustomer is (typeof JENIS_CUSTOMER)[number] =>
   (JENIS_CUSTOMER as readonly string[]).includes(jenisCustomer as string)
@@ -32,6 +34,12 @@ export const isSumberValid = (sumberInformasi: unknown): sumberInformasi is (typ
 
 export const isNoHpValid = (hp: unknown): hp is string =>
   typeof hp === 'string' && NO_HP.test(hp)
+
+export const isKotaValid = (kota: unknown): kota is string =>
+  typeof kota === 'string' && kota.trim().length > 0
+
+export const isKodePosValid = (kodePos: unknown): kodePos is string =>
+  typeof kodePos === 'string' && KODE_POS.test(kodePos.trim())
 
 export const ORDER_LINES_SELECT =
   'id_baris,nama_paket,kategori,qty,harga_satuan,order_olahan(nama_olahan,kategori),paket(tipe,anak,porsi,jenis,jumlah_hewan)'
@@ -51,13 +59,24 @@ export function statusClosing(
   return 'BARU'
 }
 
+// 'Hari' dalam zona WIB (UTC+7) — server & browser harus hitung hari yang sama,
+// kalau tidak tanggal bisa beda 1 hari (hydration error + badge deadline ngawur).
+export function hariWIB(iso: string | number | Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso))
+}
+
 export function tenggatLabel(iso: string | null | undefined): {
   text: string
   tone: 'now' | 'late' | 'soon' | 'none'
 } {
   if (!iso) return { text: 'Jadwal belum ada', tone: 'none' }
-  const d = new Date(new Date(iso).toDateString()).getTime()
-  const t = new Date(new Date().toDateString()).getTime()
+  const d = Date.parse(`${hariWIB(iso)}T00:00:00Z`)
+  const t = Date.parse(`${hariWIB(new Date())}T00:00:00Z`)
   const diff = Math.round((d - t) / 864e5)
   if (diff < 0) return { text: `Terlambat ${-diff} hari`, tone: 'late' }
   if (diff === 0) return { text: 'Kirim hari ini', tone: 'now' }

@@ -1,6 +1,7 @@
-import { requireRole } from '@/lib/auth'
+import { requireRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CLOSING_ORDERS_SELECT } from '@/lib/closing'
+import { riwayatBatch, tagihanBatch } from '@/lib/payments/pembayaran'
 import DaftarClosing from './daftar-closing'
 
 export default async function ClosingPage() {
@@ -10,7 +11,7 @@ export default async function ClosingPage() {
   let q = admin
     .from('closing')
     .select(
-      'id,nama_customer,no_hp,email_customer,alamat,jenis_customer,sumber_informasi,status,created_by,created_at' +
+      'id,nama_customer,no_hp,email_customer,alamat,jenis_customer,kota,kode_pos,sumber_informasi,status,created_by,created_at' +
         `,orders(${CLOSING_ORDERS_SELECT})`,
     )
     .order('created_at', { ascending: false })
@@ -30,5 +31,21 @@ export default async function ClosingPage() {
   const namaLokasi =
     daftarLokasi?.find((l) => l.id_lokasi === idLokasi)?.nama ?? idLokasi ?? 'BDG-RAYA'
 
-  return <DaftarClosing initialClosing={data ?? []} namaSEO={namaSEO} role={role} namaLokasi={namaLokasi} />
+  // Ringkasan pembayaran per order (supaya nomor VA kelihatan dari daftar Closing).
+  const ids = (data ?? []).flatMap((l) => (l.orders ?? []).map((o) => o.id_pesanan))
+  const [tagihan, riwayat] = await Promise.all([
+    tagihanBatch(admin, ids),
+    riwayatBatch(admin, ids),
+  ])
+
+  return (
+    <DaftarClosing
+      initialClosing={data ?? []}
+      namaSEO={namaSEO}
+      role={role}
+      namaLokasi={namaLokasi}
+      tagihan={tagihan}
+      riwayat={riwayat}
+    />
+  )
 }

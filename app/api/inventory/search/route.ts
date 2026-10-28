@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // GET /api/inventory/search?q=nasi&limit=20

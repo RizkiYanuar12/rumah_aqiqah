@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
+import { ShoppingCart, Trash, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { fmtNum, fmtRp } from '@/lib/format'
-import { inputCls } from '../_components/input-cls'
+import { fmtNum, fmtRp } from '@/lib/utils/format'
+import FormEditStok from '../_components/form-edit-stok'
 import { emptyMsg, KIND_LABEL, PILL_STOCK, statusStock, type StockKind } from '../_components/status-stock'
 
 export type StockRow = {
@@ -18,6 +19,8 @@ export type StockRow = {
   hpp_average: number | null
   is_low: boolean | null
 }
+
+type KeranjangItem = { sku: string; nama: string; satuan: string; qty: string }
 
 const EMPTY_MSG = emptyMsg('Belum ada barang di lokasi ini')
 
@@ -39,118 +42,80 @@ export default function DaftarInventory({
   const [filter, setFilter] = useState<'semua' | StockKind>('semua')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [terbuka, setTerbuka] = useState(false)
+  const [editItem, setEditItem] = useState<StockRow | null>(null)
   const [konfirmasi, setKonfirmasi] = useState<StockRow | null>(null)
-  const [masuk, setMasuk] = useState({ nama: '', qty: '', harga: '', min: '', satuan: '', exp: '' })
-  const [kemas, setKemas] = useState({ jml: '', isi: '' })
-  // Nilai qty terakhir yang diisi kalkulator: pengaman agar hitungan otomatis
-  // tidak menimpa qty yang diketik manual (Qty selalu menang).
-  const otoRef = useRef<string | null>(null)
-  const [minDiubah, setMinDiubah] = useState(false)
-  const [galat, setGalat] = useState<{ qty?: string; harga?: string; min?: string }>({})
 
-  const infoStok = masuk.nama.trim()
-    ? (items.find((it) => it.nama_barang === masuk.nama.trim()) ?? null)
-    : null
+  const [keranjang, setKeranjang] = useState<KeranjangItem[]>([])
+  const [expandedSku, setExpandedSku] = useState<string | null>(null)
+  const [keranjangTerbuka, setKeranjangTerbuka] = useState(false)
+  const [errorKeranjang, setErrorKeranjang] = useState<string | null>(null)
+  const [suksesPesan, setSuksesPesan] = useState<string | null>(null)
 
-  function bukaForm(item: StockRow) {
-    setMasuk({
-      nama: item.nama_barang ?? '',
-      qty: '',
-      harga: '',
-      min: item.min_stock == null ? '' : String(item.min_stock),
-      satuan: item.satuan ?? '',
-      exp: '',
-    })
-    setKemas({ jml: '', isi: '' })
-    otoRef.current = null
-    setMinDiubah(false)
-    setGalat({})
+  function bukaPesan(item: StockRow) {
     setError(null)
-    setTerbuka(true)
-  }
-
-  // Kalkulator kemasan (tanpa simpan): jml kemasan × isi → mengisi Qty otomatis.
-  const pcsKemas =
-    Number(kemas.jml) > 0 && Number(kemas.isi) > 0
-      ? Math.floor(Number(kemas.jml) * Number(kemas.isi))
-      : null
-
-  function ubahKemas(kunci: 'jml' | 'isi', v: string) {
-    const next = { ...kemas, [kunci]: v }
-    setKemas(next)
-    const hasil =
-      Number(next.jml) > 0 && Number(next.isi) > 0 ? Math.floor(Number(next.jml) * Number(next.isi)) : null
-    if (hasil == null) return
-    setMasuk((p) => {
-      if (p.qty.trim() !== '' && p.qty !== otoRef.current) return p
-      otoRef.current = String(hasil)
-      return { ...p, qty: String(hasil) }
+    setErrorKeranjang(null)
+    setSuksesPesan(null)
+    setKonfirmasi(null)
+    if (expandedSku === item.sku) {
+      setExpandedSku(null)
+      return
+    }
+    setExpandedSku(item.sku)
+    setKeranjang((prev) => {
+      if (prev.some((x) => x.sku === item.sku)) return prev
+      return [...prev, { sku: item.sku, nama: item.nama_barang ?? item.sku, satuan: item.satuan ?? '', qty: '1' }]
     })
   }
 
-  async function simpan() {
-    const g: { qty?: string; harga?: string; min?: string } = {}
-    const nama = masuk.nama.trim()
-    if (!nama) {
-      setError('Isi nama barang dulu')
+  function ubahQtyKeranjang(sku: string, v: string) {
+    setErrorKeranjang(null)
+    setKeranjang((prev) => prev.map((x) => (x.sku === sku ? { ...x, qty: v } : x)))
+  }
+
+  function hapusKeranjang(sku: string) {
+    if (expandedSku === sku) setExpandedSku(null)
+    if (keranjang.length <= 1) setKeranjangTerbuka(false)
+    setErrorKeranjang(null)
+    setKeranjang((prev) => prev.filter((x) => x.sku !== sku))
+  }
+
+  function kosongkanKeranjang() {
+    setKeranjang([])
+    setExpandedSku(null)
+    setKeranjangTerbuka(false)
+    setErrorKeranjang(null)
+  }
+
+  async function ajukanKeranjang() {
+    const items = keranjang.map((b) => ({
+      nama_barang: b.nama.trim(),
+      sku: b.sku.trim(),
+      qty: Number(b.qty),
+    }))
+    if (
+      !items.length ||
+      items.some((b) => !b.nama_barang || !Number.isInteger(b.qty) || b.qty < 1)
+    ) {
+      setErrorKeranjang('Periksa qty semua barang (minimal 1)')
       return
     }
-    const qtyKosong = masuk.qty.trim() === ''
-    const hargaKosong = masuk.harga.trim() === ''
-    const qty = qtyKosong ? null : Number(masuk.qty)
-    const harga = hargaKosong ? null : Number(masuk.harga)
-    const min = masuk.min.trim() === '' ? null : Number(masuk.min)
-
-    if (!qtyKosong && (!Number.isInteger(qty) || (qty as number) < 1)) g.qty = 'Qty minimal 1'
-    if (!hargaKosong && !((harga as number) >= 0)) g.harga = 'Harga beli tidak valid'
-    if (minDiubah && min !== null && (!Number.isInteger(min) || min < 0)) g.min = 'Min. stok harus bilangan bulat ≥ 0'
-    if (qtyKosong && !minDiubah) {
-      setError('Tidak ada perubahan — isi Tambah qty atau ubah Min. stok')
-      return
-    }
-    setGalat(g)
-    if (Object.keys(g).length) return
-
-    setBusy('simpan')
-    setError(null)
+    setBusy('pesan')
+    setErrorKeranjang(null)
     try {
-      if (!qtyKosong) {
-        const res = await fetch('/api/inventory/cabang', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nama_barang: nama,
-            qty,
-            harga_beli: harga,
-            satuan: masuk.satuan.trim() || null,
-            tanggal_exp: masuk.exp.trim() || null,
-          }),
-        })
-        const json = await res.json().catch(() => null)
-        if (!res.ok) {
-          setError(json?.error ?? 'Gagal catat barang masuk')
-          return
-        }
+      const res = await fetch('/api/pengajuan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        setErrorKeranjang(json?.error ?? 'Gagal mengajukan')
+        return
       }
-      if (minDiubah) {
-        const res = await fetch('/api/inventory/cabang', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nama_barang: nama, min_stock: min }),
-        })
-        const json = await res.json().catch(() => null)
-        if (!res.ok) {
-          setError(json?.error ?? 'Gagal ubah batas minimum')
-          return
-        }
-      }
-      setTerbuka(false)
-      setMasuk({ nama: '', qty: '', harga: '', min: '', satuan: '', exp: '' })
-      setKemas({ jml: '', isi: '' })
-      otoRef.current = null
-      setMinDiubah(false)
-      setGalat({})
+      setKeranjang([])
+      setExpandedSku(null)
+      setKeranjangTerbuka(false)
+      setSuksesPesan(`${items.length} barang masuk ke batch ${json?.batchId}`)
       router.refresh()
     } finally {
       setBusy(null)
@@ -195,14 +160,20 @@ export default function DaftarInventory({
     })
   }, [items, q, filter])
 
+  const totalQty = keranjang.reduce((sum, it) => sum + (Number(it.qty) || 0), 0)
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className={`mx-auto w-full max-w-[1600px] space-y-5 ${keranjang.length ? 'pb-24' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="bg-[#c2185b] bg-clip-text text-3xl font-light tracking-wide text-transparent">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-[#c2185b] uppercase">
+            Inventory · {namaLokasi}
+          </p>
+          <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
             Inventory Cabang
           </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+          <p className="mt-3 text-sm text-muted-foreground">
             {namaLokasi} · {rows.length} barang
             {(counts.low > 0 || counts.habis > 0) && (
               <>
@@ -244,158 +215,13 @@ export default function DaftarInventory({
             </button>
           ))}
         </div>
-        <Dialog.Root open={terbuka} onOpenChange={setTerbuka}>
-          <Dialog.Portal>
-            <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50" />
-            <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-background p-4 shadow-lg sm:p-5">
-              <Dialog.Title className="text-lg font-semibold text-[#c2185b]">Ubah Barang</Dialog.Title>
-              <div className="mt-3 space-y-3">
-                {infoStok && (
-                  <div className="rounded-lg border bg-muted/40 p-3">
-                    <p className="text-xs tracking-wide text-muted-foreground uppercase">Data saat ini</p>
-                    <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
-                      <div className="min-w-0">
-                        <dt className="text-xs text-muted-foreground">Stok</dt>
-                        <dd className="text-[15px] font-semibold tabular-nums">
-                          {fmtNum(infoStok.stock)} {infoStok.satuan ?? ''}
-                        </dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="text-xs text-muted-foreground">HPP rata-rata</dt>
-                        <dd className="text-[15px] tabular-nums">{fmtRp(infoStok.hpp_average)}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="text-xs text-muted-foreground">Min. stok</dt>
-                        <dd className="text-[15px] tabular-nums">
-                          {infoStok.min_stock == null ? '—' : fmtNum(infoStok.min_stock)}
-                        </dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="text-xs text-muted-foreground">Satuan</dt>
-                        <dd className="text-[15px]">{infoStok.satuan ?? '—'}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                )}
-                <label className="block">
-                  <span className="mb-1 block text-sm text-muted-foreground">Nama barang</span>
-                  <input
-                    value={masuk.nama}
-                    onChange={(e) => setMasuk((p) => ({ ...p, nama: e.target.value }))}
-                    placeholder="Nama barang terdaftar"
-                    className={`${inputCls} w-full`}
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <label className="w-24 flex-1 basis-24">
-                    <span className="mb-1 block text-sm text-muted-foreground">Tambah qty</span>
-                    <input
-                      value={masuk.qty}
-                      onChange={(e) => setMasuk((p) => ({ ...p, qty: e.target.value }))}
-                      placeholder="0"
-                      inputMode="numeric"
-                      className={`${inputCls} w-full`}
-                    />
-                    {galat.qty && <span className="mt-0.5 block text-sm text-red-700">{galat.qty}</span>}
-                  </label>
-                  <label className="w-36 flex-1 basis-36">
-                    <span className="mb-1 block text-sm text-muted-foreground">Harga beli baru</span>
-                    <input
-                      value={masuk.harga}
-                      onChange={(e) => setMasuk((p) => ({ ...p, harga: e.target.value }))}
-                      placeholder="cth. 15000"
-                      inputMode="numeric"
-                      className={`${inputCls} w-full`}
-                    />
-                    {galat.harga && <span className="mt-0.5 block text-sm text-red-700">{galat.harga}</span>}
-                  </label>
-                  <label className="w-36 flex-1 basis-36">
-                    <span className="mb-1 block text-sm text-muted-foreground">Min. stok</span>
-                    <input
-                      value={masuk.min}
-                      onChange={(e) => {
-                        setMasuk((p) => ({ ...p, min: e.target.value }))
-                        setMinDiubah(true)
-                      }}
-                      placeholder="cth. 10"
-                      inputMode="numeric"
-                      className={`${inputCls} w-full`}
-                    />
-                    {galat.min && <span className="mt-0.5 block text-sm text-red-700">{galat.min}</span>}
-                  </label>
-                  <label className="w-28 flex-1 basis-28">
-                    <span className="mb-1 block text-sm text-muted-foreground">Satuan</span>
-                    <input
-                      value={masuk.satuan}
-                      onChange={(e) => setMasuk((p) => ({ ...p, satuan: e.target.value }))}
-                      placeholder="Pcs"
-                      className={`${inputCls} w-full`}
-                    />
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <label className="w-36 flex-1 basis-36">
-                    <span className="mb-1 block text-sm text-muted-foreground">Tgl. exp batch baru</span>
-                    <input
-                      type="date"
-                      value={masuk.exp}
-                      onChange={(e) => setMasuk((p) => ({ ...p, exp: e.target.value }))}
-                      className={`${inputCls} w-full`}
-                    />
-                  </label>
-                  <div className="flex flex-1 basis-48 items-end gap-2">
-                    <label className="w-20 flex-1">
-                      <span className="mb-1 block text-sm text-muted-foreground">Kemasan</span>
-                      <input
-                        value={kemas.jml}
-                        onChange={(e) => ubahKemas('jml', e.target.value)}
-                        placeholder="cth. 4"
-                        inputMode="decimal"
-                        className={`${inputCls} w-full`}
-                      />
-                    </label>
-                    <span className="pb-2 text-muted-foreground">×</span>
-                    <label className="w-20 flex-1">
-                      <span className="mb-1 block text-sm text-muted-foreground">Isi/kemasan</span>
-                      <input
-                        value={kemas.isi}
-                        onChange={(e) => ubahKemas('isi', e.target.value)}
-                        placeholder="cth. 250"
-                        inputMode="decimal"
-                        className={`${inputCls} w-full`}
-                      />
-                    </label>
-                    <span
-                      className="pb-2 text-sm whitespace-nowrap text-muted-foreground tabular-nums"
-                      title="Otomatis mengisi Tambah qty di atas"
-                    >
-                      {pcsKemas != null ? `= ${fmtNum(pcsKemas)}` : '= …'}
-                    </span>
-                  </div>
-                </div>
-                {error && (
-                  <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-                )}
-                <div className="flex justify-end gap-2">
-                  <Dialog.Close className="inline-flex h-9 items-center rounded-lg border border-input px-3 text-[15px] hover:bg-muted">
-                    Batal
-                  </Dialog.Close>
-                  <button
-                    type="button"
-                    disabled={busy === 'simpan'}
-                    onClick={simpan}
-                    className="inline-flex h-9 items-center rounded-full bg-[#e8b10c] px-4 text-[15px] font-bold text-[#4a0f30] hover:bg-[#f5c234] disabled:opacity-50"
-                  >
-                    {busy === 'simpan' ? '…' : 'Simpan'}
-                  </button>
-                </div>
-              </div>
-            </Dialog.Popup>
-          </Dialog.Portal>
-        </Dialog.Root>
       </div>
 
-      {error && !terbuka && (
+      {suksesPesan && (
+        <p className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">{suksesPesan}</p>
+      )}
+
+      {error && (
         <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
@@ -418,48 +244,110 @@ export default function DaftarInventory({
               <tbody>
                 {rows.map((it) => {
                   const kind = statusStock(it)
+                  const diKeranjang = keranjang.find((x) => x.sku === it.sku)
+                  const terbuka = expandedSku === it.sku
                   return (
-                  <tr key={it.sku} className="border-b last:border-0 odd:bg-muted/20 hover:bg-muted/50">
-                    <td className="px-4 py-2.5">{it.nama_barang ?? it.sku}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{it.kategori ?? '—'}</td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{it.satuan ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">{fmtNum(it.stock)}</td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap text-muted-foreground">
-                      {it.min_stock == null ? '-' : fmtNum(it.min_stock)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtRp(it.hpp_average)}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span
-                        className={`inline-block rounded border px-2 py-0.5 text-xs font-bold tracking-widest uppercase ${PILL_STOCK[kind]}`}
+                    <Fragment key={it.sku}>
+                      <tr
+                        className={`border-b hover:bg-muted/50 ${
+                          diKeranjang ? 'bg-[#e8b10c]/10' : 'odd:bg-muted/20'
+                        }`}
                       >
-                        {KIND_LABEL[kind]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => bukaForm(it)}
-                          aria-label={`Ubah ${it.nama_barang ?? it.sku}`}
-                          className="inline-flex min-h-9 items-center rounded-lg border border-input px-3 text-[15px] whitespace-nowrap hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy === `hapus-${it.nama_barang ?? it.sku}`}
-                          onClick={() => {
-                            setError(null)
-                            setKonfirmasi(it)
-                          }}
-                          aria-label={`Hapus ${it.nama_barang ?? it.sku}`}
-                          className="inline-flex min-h-9 items-center rounded-lg border border-red-300 px-3 text-[15px] whitespace-nowrap text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:opacity-50"
-                        >
-                          {busy === `hapus-${it.nama_barang ?? it.sku}` ? '…' : 'Hapus'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                        <td className="px-4 py-2.5">{it.nama_barang ?? it.sku}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{it.kategori ?? '—'}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{it.satuan ?? '—'}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">{fmtNum(it.stock)}</td>
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap text-muted-foreground">
+                          {it.min_stock == null ? '-' : fmtNum(it.min_stock)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">{fmtRp(it.hpp_average)}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <span
+                            className={`inline-block rounded border px-2 py-0.5 text-xs font-bold tracking-widest uppercase ${PILL_STOCK[kind]}`}
+                          >
+                            {KIND_LABEL[kind]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditItem(it)}
+                              aria-label={`Ubah ${it.nama_barang ?? it.sku}`}
+                              className="inline-flex min-h-9 items-center rounded-lg border border-input px-3 text-[15px] whitespace-nowrap hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => bukaPesan(it)}
+                              aria-expanded={terbuka}
+                              className={`inline-flex min-h-9 min-w-[88px] items-center justify-center rounded-lg border px-3 text-[15px] whitespace-nowrap focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none ${
+                                diKeranjang
+                                  ? 'border-[#c2185b] bg-[#c2185b] font-semibold text-white hover:bg-[#a3144c]'
+                                  : 'border-[#e8b10c] text-[#4a0f30] hover:bg-[#e8b10c]/10'
+                              }`}
+                            >
+                              {terbuka ? 'Tutup' : diKeranjang ? `Pesan · ${diKeranjang.qty || 0}` : 'Pesan'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy === `hapus-${it.nama_barang ?? it.sku}`}
+                              onClick={() => {
+                                setError(null)
+                                setKonfirmasi(it)
+                              }}
+                              aria-label={`Hapus ${it.nama_barang ?? it.sku}`}
+                              className="inline-flex min-h-9 items-center rounded-lg border border-red-300 px-3 text-[15px] text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:opacity-50"
+                            >
+                              {busy === `hapus-${it.nama_barang ?? it.sku}` ? '…' : 'Hapus'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {terbuka && diKeranjang && (
+                        <tr className="border-b bg-[#e8b10c]/5">
+                          <td colSpan={8} className="px-4 py-3">
+                            <div className="flex flex-wrap items-end gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-semibold tracking-[0.2em] text-[#c2185b] uppercase">
+                                  Qty Restock
+                                </p>
+                                <p className="truncate text-sm font-medium">
+                                  {it.nama_barang ?? it.sku}
+                                  <span className="ml-1 text-muted-foreground">· {it.satuan || '—'}</span>
+                                </p>
+                              </div>
+                              <label className="w-32">
+                                <span className="mb-1 block text-xs text-muted-foreground">Qty</span>
+                                <input
+                                  autoFocus
+                                  value={diKeranjang.qty}
+                                  onChange={(e) => ubahQtyKeranjang(it.sku, e.target.value)}
+                                  inputMode="numeric"
+                                  aria-label={`Qty ${it.nama_barang ?? it.sku}`}
+                                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-right text-[15px] tabular-nums focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => hapusKeranjang(it.sku)}
+                                className="inline-flex h-10 items-center rounded-lg border border-red-300 px-3 text-sm text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                              >
+                                Hapus
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedSku(null)}
+                                className="inline-flex h-10 items-center rounded-lg border border-input px-3 text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+                              >
+                                Tutup
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -469,13 +357,123 @@ export default function DaftarInventory({
       ) : (
         <Card>
           <CardContent className="px-4 py-10 text-center">
-              <p className="text-lg font-medium">{EMPTY_MSG[filter]}</p>
+            <p className="text-lg font-medium">{EMPTY_MSG[filter]}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {q ? 'Coba kata kunci lain.' : 'Barang masuk dicatat oleh Inventory Pusat.'}
             </p>
           </CardContent>
         </Card>
       )}
+
+      {keranjang.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setKeranjangTerbuka(true)}
+          aria-label={`Buka keranjang restock, ${keranjang.length} item`}
+          className="fixed right-5 bottom-5 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#4a0f30] text-white shadow-xl transition-colors hover:bg-[#5c1440] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+        >
+          <ShoppingCart className="h-6 w-6" />
+          <span className="absolute -top-1 -right-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#e8b10c] px-1.5 text-xs font-bold text-[#4a0f30] tabular-nums">
+            {keranjang.length}
+          </span>
+        </button>
+      )}
+
+      <Dialog.Root
+        open={keranjangTerbuka}
+        onOpenChange={(v) => {
+          setKeranjangTerbuka(v)
+          if (v) setErrorKeranjang(null)
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50" />
+          <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 flex max-h-[80vh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl bg-background shadow-lg">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b p-4">
+              <div className="min-w-0">
+                <Dialog.Title className="font-heading text-lg font-semibold text-[#4a0f30]">
+                  Keranjang Restock
+                </Dialog.Title>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {keranjang.length} item · {totalQty} qty
+                </p>
+              </div>
+              <Dialog.Close
+                aria-label="Tutup keranjang"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
+              >
+                <X className="h-4 w-4" />
+              </Dialog.Close>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {keranjang.length ? (
+                <ul className="divide-y divide-input/70">
+                  {keranjang.map((it) => (
+                    <li key={it.sku} className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{it.nama}</p>
+                        <p className="text-xs text-muted-foreground">{it.satuan || '—'}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="text-sm font-semibold tabular-nums">
+                          {it.qty || 0} {it.satuan || ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => hapusKeranjang(it.sku)}
+                          aria-label={`Hapus ${it.nama}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-8 text-center text-sm text-muted-foreground">Keranjang masih kosong.</p>
+              )}
+            </div>
+            <div className="shrink-0 border-t p-4">
+              {errorKeranjang && (
+                <p className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {errorKeranjang}
+                </p>
+              )}
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold tabular-nums">
+                  {keranjang.length} item · {totalQty} qty
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={busy === 'pesan' || !keranjang.length}
+                onClick={ajukanKeranjang}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#e8b10c] px-4 text-[15px] font-bold !text-[#4a0f30] transition-colors hover:bg-[#f5c234] focus-visible:ring-2 focus-visible:ring-[#4a0f30] focus-visible:outline-none disabled:opacity-50"
+              >
+                {busy === 'pesan' ? 'Mengajukan…' : 'Ajukan Restock'}
+              </button>
+              <button
+                type="button"
+                onClick={kosongkanKeranjang}
+                disabled={busy === 'pesan'}
+                className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-full text-sm text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none disabled:opacity-50"
+              >
+                Kosongkan
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <FormEditStok
+        open={editItem !== null}
+        item={editItem}
+        endpoint="/api/inventory/cabang"
+        onClose={() => setEditItem(null)}
+        onSaved={() => router.refresh()}
+      />
 
       <Dialog.Root open={konfirmasi !== null} onOpenChange={(v) => !v && setKonfirmasi(null)}>
         <Dialog.Portal>

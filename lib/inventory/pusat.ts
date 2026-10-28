@@ -1,6 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { resolveSku } from './inventory'
+import { resolveSku } from '@/lib/inventory/inventory'
 
 export type PusatResult = { ok: true } | { ok: false; error: string; status: number }
 
@@ -28,7 +28,7 @@ export async function catatMasuk(
 
   let sku: string
   let baru = false
-  let harga: number
+  let harga: number = 0
   if (!cocok.length) {
     // Master baru hanya boleh didaftarkan di PUSAT; cabang cukup mencatat stok.
     if (idLokasi !== 'PUSAT') return fail(`Barang tidak dikenal: ${nama}`)
@@ -72,6 +72,7 @@ export async function catatMasuk(
     p_qty: input.qty as number,
     p_harga_beli: harga,
     p_tanggal_exp: expRaw,
+    p_id_batch: null,
   })
   if (error) return fail(error.message)
   return { ok: true, sku, baru }
@@ -95,6 +96,65 @@ export async function ubahMinStock(
     .from('stock_lokasi')
     .upsert({ id_lokasi: idLokasi, sku: s.sku, min_stock: min }, { onConflict: 'id_lokasi,sku' })
   if (error) return fail(error.message, 500)
+  return { ok: true }
+}
+
+// Ubah data master + stok 1 SKU di satu lokasi (form Edit Cabang).
+// Stok di-set absolut (bukan ditambah), termasuk HPP dan batas minimum.
+export async function ubahBarangLokasi(
+  admin: SupabaseClient,
+  input: {
+    id_lokasi: string
+    sku: string
+    nama_barang: string
+    kategori?: string | null
+    satuan?: string | null
+    stock: number | null
+    hpp_average: number | null
+    min_stock: number | null
+  },
+): Promise<PusatResult> {
+  const fail = (error: string, status = 400): PusatResult => ({ ok: false, error, status })
+  const sku = input.sku?.trim() ?? ''
+  const nama = input.nama_barang?.trim() ?? ''
+  if (!sku) return fail('SKU wajib diisi')
+  if (!nama) return fail('Nama barang wajib diisi')
+
+  const stock = input.stock == null ? NaN : Number(input.stock)
+  if (!Number.isFinite(stock) || stock < 0) return fail('Stok harus angka ≥ 0')
+  const hpp = input.hpp_average == null ? NaN : Number(input.hpp_average)
+  if (!Number.isFinite(hpp) || hpp < 0) return fail('HPP rata-rata harus angka ≥ 0')
+  const min = input.min_stock == null ? null : Number(input.min_stock)
+  if (min !== null && (!Number.isInteger(min) || min < 0)) return fail('Min. stok harus bilangan bulat ≥ 0')
+
+  const { data: master, error: eMaster } = await admin.from('inventory').select('sku,nama_barang')
+  if (eMaster) return fail(eMaster.message, 500)
+  const rows = (master ?? []) as { sku: string; nama_barang: string | null }[]
+  const current = rows.find((m) => m.sku === sku)
+  if (!current) return fail('Barang tidak ditemukan', 404)
+  const namaLama = (current.nama_barang ?? '').trim().toLowerCase()
+  const bentrok =
+    nama.toLowerCase() !== namaLama &&
+    rows.some((m) => m.sku !== sku && (m.nama_barang ?? '').trim().toLowerCase() === nama.toLowerCase())
+  if (bentrok) return fail('Nama barang sudah dipakai SKU lain')
+
+  const { error: eInv } = await admin
+    .from('inventory')
+    .update({
+      nama_barang: nama,
+      kategori: input.kategori?.trim() || null,
+      satuan: input.satuan?.trim() || null,
+    })
+    .eq('sku', sku)
+  if (eInv) return fail(eInv.message, 500)
+
+  const { error: eStock } = await admin
+    .from('stock_lokasi')
+    .upsert(
+      { id_lokasi: input.id_lokasi, sku, stock, hpp_average: hpp, min_stock: min },
+      { onConflict: 'id_lokasi,sku' },
+    )
+  if (eStock) return fail(eStock.message, 500)
   return { ok: true }
 }
 

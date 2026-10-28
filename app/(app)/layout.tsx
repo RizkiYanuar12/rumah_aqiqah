@@ -1,5 +1,5 @@
 import AppSideBar from '@/components/app-sidebar'
-import { ROUTE_ACCESS, ROUTE_LABELS } from '@/lib/access'
+import { ROUTE_ACCESS, ROUTE_LABELS } from '@/lib/auth/access'
 import { cookies } from 'next/headers'
 import { SidebarProvider, SidebarTrigger, SidebarInset, SIDEBAR_COOKIE_NAME } from '@/components/ui/sidebar'
 import { createClient } from '@/lib/supabase/server'

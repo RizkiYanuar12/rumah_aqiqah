@@ -1,6 +1,7 @@
-import { requireRole } from '@/lib/auth'
+import { requireRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ORDER_LINES_SELECT } from '@/lib/closing'
+import { riwayatBatch, tagihanBatch } from '@/lib/payments/pembayaran'
 import DaftarOrders from './daftar-orders'
 
 export default async function OrdersPage() {
@@ -10,7 +11,7 @@ export default async function OrdersPage() {
   let q = admin
     .from('orders')
     .select(
-      'id_pesanan,status,tipe_pembayaran,harga_final,qty_paket,diskon,waktu_kirim,waktu_tiba,tanggal_transaksi,created_at,cso_id,customer_email' +
+      'id_pesanan,status,tipe_pembayaran,metode_pembayaran,harga_final,qty_paket,diskon,waktu_kirim,waktu_tiba,tanggal_transaksi,created_at,cso_id,customer_email' +
         ',closing(id,nama_customer,no_hp,email_customer,alamat)' +
         `,order_lines(${ORDER_LINES_SELECT})` +
         ',order_items(sku,qty)',
@@ -34,11 +35,22 @@ export default async function OrdersPage() {
     })),
   }))
 
+  // Data pembayaran untuk list: 1 query view + 1 query tabel (bukan per order).
+  const ids = rows.map((r) => String((r as unknown as { id_pesanan: string }).id_pesanan))
+  const [tagihan, riwayat] = await Promise.all([
+    tagihanBatch(admin, ids),
+    riwayatBatch(admin, ids),
+  ])
+
   return (
     <DaftarOrders
       initialOrders={rows as never}
+      tagihan={tagihan}
+      riwayat={riwayat}
       editable={role === 'seo' || role === 'cso'}
       canChangeStatus={role === 'cso' || role === 'branch_manager'}
+      canPay={role === 'seo' || role === 'cso' || role === 'finance' || role === 'branch_manager'}
+      canMakeVa={role === 'seo' || role === 'cso' || role === 'branch_manager'}
     />
   )
 }

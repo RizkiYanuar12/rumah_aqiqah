@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { catatMasuk, hapusStokLokasi, ubahMinStock } from '@/lib/pusat'
+import { catatMasuk, hapusStokLokasi, ubahBarangLokasi, ubahMinStock } from '@/lib/inventory/pusat'
 
 // GET /api/inventory/pusat
 export async function GET() {
@@ -53,8 +53,26 @@ export async function PATCH(req: Request) {
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const body = await req.json().catch(() => null)
+  const admin = createAdminClient()
+
+  if (body?.sku) {
+    const result = await ubahBarangLokasi(admin, {
+      id_lokasi: 'PUSAT',
+      sku: String(body.sku ?? ''),
+      nama_barang: String(body?.nama_barang ?? ''),
+      kategori: body?.kategori == null ? null : String(body.kategori),
+      satuan: body?.satuan == null ? null : String(body.satuan),
+      stock: body?.stock == null || body.stock === '' ? null : Number(body.stock),
+      hpp_average:
+        body?.hpp_average == null || body.hpp_average === '' ? null : Number(body.hpp_average),
+      min_stock: body?.min_stock == null || body.min_stock === '' ? null : Number(body.min_stock),
+    })
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    return NextResponse.json(result)
+  }
+
   const rawMin = body?.min_stock
-  const result = await ubahMinStock(await createAdminClient(), {
+  const result = await ubahMinStock(admin, {
     nama_barang: String(body?.nama_barang ?? ''),
     min_stock: rawMin == null || rawMin === '' ? null : Number(rawMin),
   })

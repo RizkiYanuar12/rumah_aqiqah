@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import OrderForm, { type OrderFormValues } from '../../../closing/_components/order-form'
 import type { BomPaket, OlahanOpt, PaketOpt } from '../../../closing/_components/order-sections'
-import { METODE_PEMBAYARAN } from '@/lib/order-status'
 
 export type UbahInitial = Omit<OrderFormValues, 'tanggalTransaksi'>
 
@@ -42,6 +41,12 @@ export default function FormUbahOrder({
           </p>
         ) : undefined
       }
+      customerComplete
+      reviewCustomer={
+        <p className="text-sm">
+          <span className="font-medium">{customer.nama}</span> · {customer.no_hp}
+        </p>
+      }
       customerCard={
         <Card>
           <CardHeader className="text-lg font-semibold text-[#c2185b]">1. Data customer (tidak bisa diubah di sini)</CardHeader>
@@ -66,10 +71,6 @@ export default function FormUbahOrder({
       resep={resep}
       initial={{ ...initial, tanggalTransaksi: '' }}
       showTanggal={false}
-      validateExtra={(v) => {
-        if (!(METODE_PEMBAYARAN as readonly string[]).includes(v.metode)) return 'Pilih metode pembayaran'
-        return null
-      }}
       submitLabel="Simpan Perubahan"
       onSubmit={async (v) => {
         const res = await fetch(`/api/orders/${orderId}`, {

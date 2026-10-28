@@ -76,11 +76,17 @@ export default function DaftarResep({
   const tanpaResep = groups.filter((g) => g.rows.length === 0).length
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-light tracking-wide text-[#c2185b]">Resep Paket</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-[#c2185b] uppercase">
+            Resep · {namaLokasi}
+          </p>
+          <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
+            Resep Paket
+          </h1>
+          <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-gradient-to-r from-[#c2185b] to-[#e8b10c]" />
+          <p className="mt-3 text-sm text-muted-foreground">
             {namaLokasi} · {groups.length} paket · {totalBaris} baris resep
             {tanpaResep > 0 && ` · ${tanpaResep} paket tanpa resep`}
           </p>

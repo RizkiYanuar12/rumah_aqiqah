@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createOrderFromDetail, type AddonIn, type InventoryIn } from '@/lib/orders'
-import { METODE_PEMBAYARAN } from '@/lib/order-status'
-import { SUMBER_INFORMASI, STATUS, NO_HP, CLOSING_ORDERS_SELECT, JENIS_CUSTOMER } from '@/lib/closing'
+import { createOrderFromDetail } from '@/lib/orders/create'
+import { type AddonIn, type InventoryIn } from '@/lib/orders/types'
+import { METODE_PEMBAYARAN } from '@/lib/orders/status'
+import { SUMBER_INFORMASI, STATUS, CLOSING_ORDERS_SELECT, JENIS_CUSTOMER, isNoHpValid, isKotaValid, isKodePosValid } from '@/lib/closing'
 
-const COLUMNS =
-  'id,nama_customer,no_hp,email_customer,alamat,jenis_customer,sumber_informasi,status,created_by,created_at' +
+const CUSTOMER_COLUMNS =
+  'id,nama_customer,no_hp,email_customer,alamat,jenis_customer,kota,kode_pos,wilayah,sumber_informasi,status,created_by,created_at' +
   `,orders(${CLOSING_ORDERS_SELECT})`
 
 export async function GET(req: Request) {
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
 
   // Admin client + filter kode (RLS tabel baru belum ada untuk semua role)
   const admin = createAdminClient()
-  let q = admin.from('closing').select(COLUMNS).order('created_at', { ascending: false })
+  let q = admin.from('closing').select(CUSTOMER_COLUMNS).order('created_at', { ascending: false })
   q = q.order('created_at', { ascending: false, referencedTable: 'orders' })
   if (auth.role === 'seo') q = q.eq('created_by', auth.userId)
   if (status) q = q.eq('status', status)
@@ -48,20 +49,38 @@ export async function POST(req: Request) {
   const email = body?.email_customer?.trim?.() || body?.email?.trim?.() || null
   const sumber = body?.sumber_informasi
   const jenisCustomer = body?.jenis_customer
+  const kota = body?.kota?.trim?.() ?? ''
+  const kodePos = body?.kode_pos?.trim?.() ?? ''
   const order = body?.order ?? null
 
-  if (!nama) return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 })
-  if (!NO_HP.test(no_hp ?? '')) {
-    return NextResponse.json({ error: 'No HP harus format +62 (contoh +628123456789)' }, { status: 400 })
+  if (!nama || !nama.trim()) {return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 })}
+  
+  if (!no_hp) {
+    return NextResponse.json({ error: 'No HP wajib diisi', field: 'no_hp' }, { status: 400 })
   }
-  if (!alamat) return NextResponse.json({ error: 'Alamat wajib diisi' }, { status: 400 })
+
+  if (!isNoHpValid(no_hp)) {
+    return NextResponse.json({ error: 'No HP diawali 08 dan minimal 10 angka', field: 'no_hp' }, { status: 400 })
+  }
+  
+  if (!alamat) { return NextResponse.json({ error: 'Alamat wajib diisi' }, { status: 400 }) }
+  
   if (!(SUMBER_INFORMASI as readonly string[]).includes(sumber)) {
     return NextResponse.json({ error: 'Sumber tidak valid' }, { status: 400 })
   }
+  
   if (!(JENIS_CUSTOMER as readonly string[]).includes(jenisCustomer)){
     return NextResponse.json({ error: 'Jenis customer tidak valid'}, {status: 400})
   }
-  if (!order) return NextResponse.json({ error: 'Rincian order wajib diisi' }, { status: 400 })
+  
+  if (!isKotaValid(kota)) {return NextResponse.json({error: 'Mohon Masukkan Kota Tempat Customer Berada', field: 'kota'}, { status: 400 })}
+
+  if (!kodePos) {return NextResponse.json({error: 'Kode pos wajib diisi', field: 'kode_pos'}, {status: 400})}
+
+  if (!isKodePosValid(kodePos)) {return NextResponse.json({error: 'Kode pos harus 5 digit (mis. 40115)', field: 'kode_pos'}, {status: 400})}
+  
+  if (!order) {return NextResponse.json({ error: 'Rincian order wajib diisi' }, { status: 400 }) }
+  
   if (!(METODE_PEMBAYARAN as readonly string[]).includes(order?.metode_pembayaran)) {
     return NextResponse.json({ error: 'Metode pembayaran tidak valid' }, { status: 400 })
   }
@@ -90,8 +109,8 @@ export async function POST(req: Request) {
 
   const { data: created, error: eCreate } = await admin
     .from('closing')
-      .insert({ nama_customer: nama, no_hp, email_customer: email, alamat, jenis_customer: jenisCustomer, sumber_informasi: sumber, created_by: auth.userId, status: 'BARU' })
-    .select('id,nama_customer,no_hp,email_customer,alamat,jenis_customer,sumber_informasi,status,created_by,created_at')
+    .insert({ nama_customer: nama, no_hp, email_customer: email, alamat, jenis_customer: jenisCustomer, kota, kode_pos: kodePos, wilayah: auth.idLokasi, sumber_informasi: sumber, created_by: auth.userId, status: 'BARU' })
+    .select('id,nama_customer,no_hp,email_customer,alamat,jenis_customer, kota, kode_pos, wilayah, sumber_informasi,status,created_by,created_at')
     .single()
   if (eCreate || !created) {
     return NextResponse.json({ error: eCreate?.message ?? 'Gagal menyimpan closing' }, { status: 500 })
@@ -131,12 +150,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: result.error }, { status: result.status })
   }
 
+  const warnings: string[] = []
+  if (riwayat?.length) warnings.push('No HP sudah terdaftar sebelumnya')
+
+  // VA dibuat manual dari menu Pesanan (nominal bisa cicilan), bukan saat closing.
   return NextResponse.json(
     {
       closing: created,
       order_id: result.order_id,
       harga_final: result.harga_final,
-      warning: riwayat?.length ? 'No HP sudah terdaftar sebelumnya' : undefined,
+      va_number: null,
+      warning: warnings.length ? warnings.join(' · ') : undefined,
       riwayat: riwayat ?? [],
     },
     { status: 201 },

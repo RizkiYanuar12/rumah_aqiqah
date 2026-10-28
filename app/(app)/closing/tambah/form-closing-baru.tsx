@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import OrderForm from '../_components/order-form'
+import OrderForm, { type FieldErrors } from '../_components/order-form'
 import type { BomPaket, OlahanOpt, PaketOpt } from '../_components/order-sections'
-import { NO_HP, SUMBER_INFORMASI, JENIS_CUSTOMER } from '@/lib/closing'
-import { METODE_PEMBAYARAN } from '@/lib/order-status'
+import { SUMBER_INFORMASI, JENIS_CUSTOMER, isNoHpValid, isKotaValid, isKodePosValid } from '@/lib/closing'
+import { METODE_PEMBAYARAN } from '@/lib/orders/status'
 import { clearDraft, useDraftState } from '@/hooks/use-draft'
 
 const DRAFT = 'closing:v1'
@@ -32,7 +32,28 @@ export default function FormClosingBaru({
   const [alamat, setAlamat] = useDraftState(`${DRAFT}:alamat`, '')
   const [jenisCustomer, setJenisCustomer] = useDraftState<string>(`${DRAFT}:jenisCustomer`, JENIS_CUSTOMER[0])
   const [sumberInformasi, setSumberInformasi] = useDraftState(`${DRAFT}:sumberInformasi`, 'Instagram')
+  const [kota, setKota] = useDraftState(`${DRAFT}:kota`, '')
+  const [kodePos, setKodePos] = useDraftState(`${DRAFT}:kodepos`, '')
+  // Pesan validasi per kolom (kunci = nama field).
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+
+  function clearErr(key: string) {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
   const [notice, setNotice] = useState<string | null>(null)
+  const customerComplete = Boolean(
+    nama.trim() &&
+      isNoHpValid(noHp.trim()) &&
+      alamat.trim() &&
+      isKotaValid(kota) &&
+      isKodePosValid(kodePos) &&
+      (JENIS_CUSTOMER as readonly string[]).includes(jenisCustomer),
+  )
 
   return (
     <OrderForm
@@ -53,6 +74,41 @@ export default function FormClosingBaru({
           )}
         </>
       }
+      customerComplete={customerComplete}
+      reviewCustomer={
+        <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-[11px] tracking-widest text-muted-foreground uppercase">Nama</dt>
+            <dd className="font-medium">{nama || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] tracking-widest text-muted-foreground uppercase">No. HP</dt>
+            <dd className="tabular-nums">{noHp || '—'}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-[11px] tracking-widest text-muted-foreground uppercase">Alamat</dt>
+            <dd>
+              {alamat || '—'}
+              {kota ? `, ${kota}` : ''}
+              {kodePos ? ` ${kodePos}` : ''}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] tracking-widest text-muted-foreground uppercase">Jenis</dt>
+            <dd>{jenisCustomer}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] tracking-widest text-muted-foreground uppercase">Sumber</dt>
+            <dd>{sumberInformasi}</dd>
+          </div>
+          {email && (
+            <div className="sm:col-span-2">
+              <dt className="text-[11px] tracking-widest text-muted-foreground uppercase">Email</dt>
+              <dd>{email}</dd>
+            </div>
+          )}
+        </dl>
+      }
       customerCard={
         <Card>
           <CardHeader className="text-lg font-semibold text-[#c2185b]">1. Data customer</CardHeader>
@@ -66,28 +122,124 @@ export default function FormClosingBaru({
               <p className="h-8 rounded-lg border border-input bg-muted px-2.5 py-1 text-sm font-medium">aqiqah</p>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="nama">Nama customer</Label>
-              <Input id="nama" required value={nama} onChange={(e) => setNama(e.target.value)} className="h-11 text-[15px]" />
+              <Label htmlFor="nama">
+                Nama customer <span className="text-[#c2185b]">*</span>
+              </Label>
+              <Input
+                id="nama"
+                required
+                autoComplete="name"
+                value={nama}
+                aria-invalid={!!fieldErrors.nama}
+                aria-describedby={fieldErrors.nama ? 'err-nama' : undefined}
+                onChange={(e) => { setNama(e.target.value); clearErr('nama') }}
+                className="h-11 text-[15px]"
+              />
+              {fieldErrors.nama && <p id="err-nama" className="text-sm text-red-600">{fieldErrors.nama}</p>}
             </div>
             <div className='grid gap-1.5'>
-              <Label htmlFor='email'>Email</Label>
-              <Input id='email' value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 text-[15px]" />
+              <Label htmlFor='email'>Email (opsional)</Label>
+              <Input
+                id='email'
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 text-[15px]"
+              />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="nohp">No. HP (+62…)</Label>
-              <Input id="nohp" required placeholder="+628123456789" pattern="\+62[0-9]{9,13}"
-                value={noHp} onChange={(e) => setNoHp(e.target.value)} className="h-11 text-[15px]" />
+              <Label htmlFor="nohp">
+                No. HP <span className="text-[#c2185b]">*</span> (diawali 08)
+              </Label>
+              <Input
+                id="nohp"
+                required
+                autoComplete="tel"
+                placeholder="08201020112"
+                maxLength={14}
+                inputMode="numeric"
+                aria-invalid={!!fieldErrors.no_hp}
+                aria-describedby={fieldErrors.no_hp ? 'err-nohp' : undefined}
+                value={noHp}
+                onChange={(e) => { setNoHp(e.target.value.replace(/\D/g, '').slice(0, 14)); clearErr('no_hp') }}
+                onBlur={() => {
+                  if (!noHp.trim()) setFieldErrors((p) => ({ ...p, no_hp: 'No HP wajib diisi' }))
+                  else if (!isNoHpValid(noHp.trim()))
+                    setFieldErrors((p) => ({ ...p, no_hp: 'No HP diawali 08 dan minimal 10 angka' }))
+                  else clearErr('no_hp')
+                }}
+                className="h-11 text-[15px]"
+              />
+              {fieldErrors.no_hp && (
+                <p id="err-nohp" className="text-sm text-red-600">{fieldErrors.no_hp}</p>
+              )}
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="alamat">Alamat</Label>
-              <Input id="alamat" required value={alamat} onChange={(e) => setAlamat(e.target.value)} className="h-11 text-[15px]" />
+              <Label htmlFor="alamat">
+                Alamat <span className="text-[#c2185b]">*</span>
+              </Label>
+              <Input
+                id="alamat"
+                required
+                autoComplete="street-address"
+                value={alamat}
+                aria-invalid={!!fieldErrors.alamat}
+                aria-describedby={fieldErrors.alamat ? 'err-alamat' : undefined}
+                onChange={(e) => { setAlamat(e.target.value); clearErr('alamat') }}
+                className="h-11 text-[15px]"
+              />
+              {fieldErrors.alamat && <p id="err-alamat" className="text-sm text-red-600">{fieldErrors.alamat}</p>}
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="kota">
+                Kota <span className="text-[#c2185b]">*</span>
+              </Label>
+              <Input
+                id="kota"
+                required
+                autoComplete="address-level2"
+                value={kota}
+                aria-invalid={!!fieldErrors.kota}
+                aria-describedby={fieldErrors.kota ? 'err-kota' : undefined}
+                onChange={(e) => { setKota(e.target.value); clearErr('kota') }}
+                className="h-11 text-[15px]"
+              />
+              {fieldErrors.kota && <p id="err-kota" className="text-sm text-red-600">{fieldErrors.kota}</p>}
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="kode_pos">
+                Kode Pos <span className="text-[#c2185b]">*</span> (5 digit)
+              </Label>
+              <Input
+                id="kode_pos"
+                required
+                autoComplete="postal-code"
+                placeholder="40115"
+                maxLength={5}
+                inputMode="numeric"
+                aria-invalid={!!fieldErrors.kode_pos}
+                aria-describedby={fieldErrors.kode_pos ? 'err-kodepos' : undefined}
+                value={kodePos}
+                onChange={(e) => { setKodePos(e.target.value.replace(/\D/g, '').slice(0, 5)); clearErr('kode_pos') }}
+                onBlur={() => {
+                  if (!kodePos.trim()) setFieldErrors((p) => ({ ...p, kode_pos: 'Kode pos wajib diisi' }))
+                  else if (!isKodePosValid(kodePos))
+                    setFieldErrors((p) => ({ ...p, kode_pos: 'Kode pos harus 5 digit (mis. 40115)' }))
+                  else clearErr('kode_pos')
+                }}
+                className="h-11 text-[15px]"
+              />
+              {fieldErrors.kode_pos && (
+                <p id="err-kodepos" className="text-sm text-red-600">{fieldErrors.kode_pos}</p>
+              )}
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="sumberInformasi">Sumber</Label>
               <select
                 id="sumberInformasi"
                 value={sumberInformasi}
-                onChange={(e) => setSumberInformasi(e.target.value)}
+                onChange={(e) => { setSumberInformasi(e.target.value); clearErr('sumber') }}
                 className="h-11 rounded-lg border border-input bg-transparent px-2 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
               >
                 {SUMBER_INFORMASI.map((s) => (
@@ -96,17 +248,25 @@ export default function FormClosingBaru({
               </select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="jenisCustomer">Jenis customer</Label>
+              <Label htmlFor="jenisCustomer">
+                Jenis customer <span className="text-[#c2185b]">*</span>
+              </Label>
               <select
                 id="jenisCustomer"
+                required
                 value={jenisCustomer}
-                onChange={(e) => setJenisCustomer(e.target.value)}
+                onChange={(e) => { setJenisCustomer(e.target.value); clearErr('jenis_customer') }}
+                aria-invalid={!!fieldErrors.jenis_customer}
+                aria-describedby={fieldErrors.jenis_customer ? 'err-jeniscustomer' : undefined}
                 className="h-11 rounded-lg border border-input bg-transparent px-2 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
               >
                 {JENIS_CUSTOMER.map((jenis) => (
                   <option key={jenis} value={jenis}>{jenis}</option>
                 ))}
               </select>
+              {fieldErrors.jenis_customer && (
+                <p id="err-jeniscustomer" className="text-sm text-red-600">{fieldErrors.jenis_customer}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -121,13 +281,21 @@ export default function FormClosingBaru({
       }}
       showTanggal
       draftPrefix={DRAFT}
-      validateExtra={(v) => {
-        if (!NO_HP.test(noHp.trim())) return 'No HP harus format +62 (contoh +628123456789)'
-        if (!(JENIS_CUSTOMER as readonly string[]).includes(jenisCustomer)) return 'Pilih jenis customer'
-        if (!(METODE_PEMBAYARAN as readonly string[]).includes(v.metode)) return 'Pilih metode pembayaran'
-        if (!v.tanggalTransaksi || isNaN(+new Date(v.tanggalTransaksi))) return 'Isi tanggal transaksi'
-        return null
+      validateExtra={() => {
+        const e: FieldErrors = {}
+        if (!nama.trim()) e.nama = 'Nama customer wajib diisi'
+        if (!alamat.trim()) e.alamat = 'Alamat wajib diisi'
+        if (!isKotaValid(kota)) e.kota = 'Mohon Masukkan Kota Tempat Customer Berada'
+        if (!kodePos.trim()) e.kode_pos = 'Kode pos wajib diisi'
+        else if (!isKodePosValid(kodePos)) e.kode_pos = 'Kode pos harus 5 digit (mis. 40115)'
+        if (!noHp.trim()) e.no_hp = 'No HP wajib diisi'
+        else if (!isNoHpValid(noHp.trim())) e.no_hp = 'No HP diawali 08 dan minimal 10 angka'
+        if (!(JENIS_CUSTOMER as readonly string[]).includes(jenisCustomer)) {
+          e.jenis_customer = 'Pilih jenis customer'
+        }
+        return e
       }}
+      onFieldErrors={setFieldErrors}
       submitLabel="Simpan Closing + Order"
       onSubmit={async (v) => {
         setNotice(null)
@@ -139,6 +307,8 @@ export default function FormClosingBaru({
             no_hp: noHp.trim(),
             email_customer: email.trim(),
             alamat: alamat.trim(),
+            kota: kota.trim(),
+            kode_pos: kodePos.trim(),
             jenis_customer: jenisCustomer,
             sumber_informasi: sumberInformasi,
             order: {
@@ -158,7 +328,11 @@ export default function FormClosingBaru({
           }),
         })
         const json = await res.json()
-        if (!res.ok) return json.error ?? 'Gagal menyimpan closing'
+        if (!res.ok) {
+          // Error dari API bisa menunjuk kolom -> tampil di kolomnya, bukan di bawah.
+          if (json?.field) setFieldErrors((prev) => ({ ...prev, [json.field]: json.error }))
+          return json.error ?? 'Gagal menyimpan closing'
+        }
         if (json.warning) setNotice(json.warning)
         clearDraft(DRAFT)
         router.push('/closing')

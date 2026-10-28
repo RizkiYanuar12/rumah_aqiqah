@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
-import { fmtNum } from '@/lib/format'
+import { fmtNum } from '@/lib/utils/format'
 import type { ResepPaket, ResepRow } from '../daftar-resep'
 
 async function kirim(method: string, body: object): Promise<void> {

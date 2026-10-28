@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { fmtNum, fmtRp } from '@/lib/format'
+import { fmtNum, fmtRp } from '@/lib/utils/format'
 import { inputCls } from './input-cls'
 
 export type StokRow = {

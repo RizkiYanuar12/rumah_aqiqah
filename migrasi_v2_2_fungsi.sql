@@ -130,7 +130,8 @@ create function barang_masuk(
   p_sku        text,
   p_qty        numeric,
   p_harga_beli numeric,
-  p_tanggal_exp date default null
+  p_tanggal_exp date default null,
+  p_id_batch text default null
 ) returns void
 language plpgsql as $$
 begin
@@ -152,8 +153,8 @@ begin
                       / (stock_lokasi.stock + p_qty),
         stock       = stock_lokasi.stock + p_qty;
 
-  insert into mutasi_stock (id_lokasi, sku, jenis, jumlah, harga_satuan, tanggal_exp)
-  values (p_id_lokasi, p_sku, 'MASUK', p_qty, p_harga_beli, p_tanggal_exp);
+  insert into mutasi_stock (id_lokasi, sku, jenis, jumlah, harga_satuan, tanggal_exp, id_lokasi_tujuan, id_batch)
+  values (p_id_lokasi, p_sku, 'MASUK', p_qty, p_harga_beli, p_tanggal_exp, null, p_id_batch);
 end $$;
 
 

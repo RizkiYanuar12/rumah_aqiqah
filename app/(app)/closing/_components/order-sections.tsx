@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { fmtNum, fmtRp } from '@/lib/format'
+import { fmtNum, fmtRp } from '@/lib/utils/format'
 
 export type PaketOpt = {
   id: string
@@ -54,6 +54,14 @@ export type InventoryRow = {
   stock: number
   qty: number
   harga: number
+}
+
+export type SummaryLine = {
+  id: string
+  nama: string
+  qty: number
+  harga: number
+  satuan?: string
 }
 
 export const GOLD_BTN =
@@ -142,13 +150,17 @@ export function PaketSection({
   value,
   onChange,
   resep,
-  qtyPaket,
+  qty,
+  onQty,
+  error,
 }: {
   utama: PaketOpt[]
   value: string
   onChange: (id: string) => void
   resep?: BomPaket[]
-  qtyPaket?: number
+  qty: number
+  onQty: (n: number) => void
+  error?: string | null
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, PaketOpt[]>()
@@ -175,8 +187,48 @@ export function PaketSection({
 
   return (
     <Card>
-      <CardHeader className="text-lg font-semibold text-[#c2185b]">2. Paket utama</CardHeader>
+      <CardHeader className="text-lg font-semibold text-[#c2185b]">
+        2. Paket utama <span className="text-[#c2185b]">*</span>
+      </CardHeader>
       <CardContent className="grid gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+          <div>
+            <Label htmlFor="qty" className="text-sm font-medium">
+              Jumlah paket <span className="text-[#c2185b]">*</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">Total porsi dan barang keluar mengikuti jumlah ini.</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-9"
+              aria-label="Kurangi jumlah paket"
+              onClick={() => onQty(Math.max(1, qty - 1))}
+            >
+              −
+            </Button>
+            <Input
+              id="qty"
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(e) => onQty(Math.max(1, Math.floor(Number(e.target.value)) || 1))}
+              className="h-9 w-16 px-1 text-center text-sm tabular-nums"
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-9"
+              aria-label="Tambah jumlah paket"
+              onClick={() => onQty(qty + 1)}
+            >
+              +
+            </Button>
+          </div>
+        </div>
         {groups.map((g) => {
           const isOpen = terbuka.has(g.nama) || g.selected
           return (
@@ -244,10 +296,11 @@ export function PaketSection({
           )
         })}
         {!groups.length && <p className="text-sm text-muted-foreground">Tidak ada paket aktif</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         {(() => {
           const bom = (resep ?? []).find((b) => b.id_paket === value)
           if (!bom) return null
-          const n = Math.max(1, qtyPaket || 1)
+          const n = Math.max(1, qty || 1)
           return (
             <div className="rounded-lg border bg-muted/40 px-3 py-2">
               <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">
@@ -296,6 +349,8 @@ export function OlahanSection({
   jeroanId,
   onDaging,
   onJeroan,
+  errorDaging,
+  errorJeroan,
 }: {
   daging: OlahanOpt[]
   jeroan: OlahanOpt[]
@@ -303,10 +358,14 @@ export function OlahanSection({
   jeroanId: string
   onDaging: (id: string) => void
   onJeroan: (id: string) => void
+  errorDaging?: string | null
+  errorJeroan?: string | null
 }) {
   return (
     <Card>
-      <CardHeader className="text-lg font-semibold text-[#c2185b]">3. Olahan</CardHeader>
+      <CardHeader className="text-lg font-semibold text-[#c2185b]">
+        3. Olahan <span className="text-[#c2185b]">*</span>
+      </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2">
         <fieldset>
           <legend className="mb-1 text-sm text-muted-foreground">Daging (pilih 1)</legend>
@@ -319,6 +378,7 @@ export function OlahanSection({
               </label>
             ))}
           </div>
+          {errorDaging && <p className="mt-1 text-sm text-red-600">{errorDaging}</p>}
         </fieldset>
         <fieldset>
           <legend className="mb-1 text-sm text-muted-foreground">Tulang / jeroan (pilih 1)</legend>
@@ -331,6 +391,7 @@ export function OlahanSection({
               </label>
             ))}
           </div>
+          {errorJeroan && <p className="mt-1 text-sm text-red-600">{errorJeroan}</p>}
         </fieldset>
       </CardContent>
     </Card>
@@ -358,15 +419,34 @@ export function AddonSection({
               <p className="font-medium">{a.nama_paket}</p>
               <p className="text-muted-foreground tabular-nums">{fmtRp(Number(a.harga))}</p>
             </div>
-            <Button type="button" size="sm" variant="outline" onClick={() => onStep(a.id, -1)}>−</Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-9"
+              aria-label={`Kurangi ${a.nama_paket}`}
+              onClick={() => onStep(a.id, -1)}
+            >
+              −
+            </Button>
             <Input
               type="number"
               min={0}
+              aria-label={`Qty ${a.nama_paket}`}
               value={qty[a.id] ?? 0}
               onChange={(e) => onSet(a.id, Math.max(0, Math.floor(Number(e.target.value)) || 0))}
-              className="h-8 w-16 px-1 text-center text-sm tabular-nums"
+              className="h-9 w-16 px-1 text-center text-sm tabular-nums"
             />
-            <Button type="button" size="sm" variant="outline" onClick={() => onStep(a.id, 1)}>+</Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-9"
+              aria-label={`Tambah ${a.nama_paket}`}
+              onClick={() => onStep(a.id, 1)}
+            >
+              +
+            </Button>
           </div>
         ))}
       </CardContent>
@@ -385,32 +465,41 @@ export function InventorySection({
   const [hits, setHits] = useState<InventoryHit[]>([])
   const [loading, setLoading] = useState(false)
 
-  async function search(next: string) {
-    setQ(next)
-    if (next.trim().length < 2) {
-      setHits([])
-      return
+  useEffect(() => {
+    const term = q.trim()
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      if (term.length < 2) {
+        setHits([])
+        return
+      }
+      try {
+        const res = await fetch(`/api/inventory/search?q=${encodeURIComponent(term)}`, {
+          signal: controller.signal,
+        })
+        const json = await res.json()
+        if (res.ok) setHits(json.items ?? [])
+      } catch {
+        // diamkan, coba lagi saat mengetik
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
+    }, term.length < 2 ? 0 : 300)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
     }
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/inventory/search?q=${encodeURIComponent(next.trim())}`)
-      const json = await res.json()
-      if (res.ok) setHits((json.items ?? []).filter((h: InventoryHit) => !rows.some((r) => r.sku === h.sku)))
-    } catch {
-      // diamkan, coba lagi saat mengetik
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [q])
 
   function add(h: InventoryHit) {
     onRows([...rows, { sku: h.sku, nama_barang: h.nama_barang, satuan: h.satuan, stock: h.stock, qty: 1, harga: 0 }])
-    setHits((prev) => prev.filter((x) => x.sku !== h.sku))
   }
 
   function patch(sku: string, p: Partial<InventoryRow>) {
     onRows(rows.map((r) => (r.sku === sku ? { ...r, ...p } : r)))
   }
+
+  const visibleHits = hits.filter((h) => !rows.some((r) => r.sku === h.sku))
 
   return (
     <Card>
@@ -422,23 +511,34 @@ export function InventorySection({
             id="inv-search"
             placeholder="misal nasi box…"
             value={q}
-            onChange={(e) => search(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value
+              setQ(next)
+              setLoading(next.trim().length >= 2)
+            }}
             className="h-11 text-[15px]"
           />
           {loading && <p className="text-sm text-muted-foreground">Mencari…</p>}
-          {!loading && q.trim().length >= 2 && !hits.length && (
+          {!loading && q.trim().length >= 2 && !visibleHits.length && (
             <p className="text-sm text-muted-foreground">Tidak ketemu di lokasi ini</p>
           )}
-          {hits.map((h) => (
+          {!loading && visibleHits.map((h) => (
             <div key={h.sku} className="flex items-center gap-2 text-sm">
               <div className="flex-1">
                 <p className="font-medium">{h.nama_barang}</p>
                 <p className="text-muted-foreground tabular-nums">
-                  {h.sku}{h.satuan ? ` · ${h.satuan}` : ''} · stok {h.stock}
+                  {h.sku}{h.satuan ? ` · ${h.satuan}` : ''} · stok {fmtNum(h.stock)} · HPP {fmtRp(h.hpp_average)}
                 </p>
               </div>
-              <Button type="button" size="sm" variant="outline" onClick={() => add(h)}>
-                Tambah
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9"
+                disabled={h.stock <= 0}
+                onClick={() => add(h)}
+              >
+                {h.stock > 0 ? 'Tambah' : 'Habis'}
               </Button>
             </div>
           ))}
@@ -452,7 +552,7 @@ export function InventorySection({
                   {r.sku}{r.satuan ? ` · ${r.satuan}` : ''} · stok {r.stock}
                 </p>
               </div>
-              <Button type="button" size="sm" variant="ghost" onClick={() => onRows(rows.filter((x) => x.sku !== r.sku))}>
+              <Button type="button" size="sm" variant="ghost" className="h-9" onClick={() => onRows(rows.filter((x) => x.sku !== r.sku))}>
                 Hapus
               </Button>
             </div>
@@ -460,21 +560,40 @@ export function InventorySection({
               <div className="grid gap-1">
                 <Label>Qty</Label>
                 <div className="flex items-center gap-1">
-                  <Button type="button" size="sm" variant="outline" onClick={() => patch(r.sku, { qty: Math.max(1, r.qty - 1) })}>−</Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-9"
+                    aria-label={`Kurangi ${r.nama_barang}`}
+                    onClick={() => patch(r.sku, { qty: Math.max(1, r.qty - 1) })}
+                  >
+                    −
+                  </Button>
                   <Input
                     type="number"
                     min={1}
                     max={Math.max(r.stock, 1)}
+                    aria-label={`Qty ${r.nama_barang}`}
                     value={r.qty}
                     onChange={(e) => patch(r.sku, { qty: Math.min(Math.max(r.stock, 1), Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
-                    className="h-8 w-16 px-1 text-center text-sm tabular-nums"
+                    className="h-9 w-16 px-1 text-center text-sm tabular-nums"
                   />
-                  <Button type="button" size="sm" variant="outline" onClick={() => patch(r.sku, { qty: Math.min(Math.max(r.stock, 1), r.qty + 1) })}>+</Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-9"
+                    aria-label={`Tambah ${r.nama_barang}`}
+                    onClick={() => patch(r.sku, { qty: Math.min(Math.max(r.stock, 1), r.qty + 1) })}
+                  >
+                    +
+                  </Button>
                 </div>
               </div>
               <div className="grid gap-1">
                 <Label>Harga jual</Label>
-                <Input type="number" min={0} value={r.harga} className="h-10 text-sm"
+                <Input type="number" min={0} aria-label={`Harga jual ${r.nama_barang}`} value={r.harga} className="h-10 text-sm"
                   onChange={(e) => patch(r.sku, { harga: Math.max(0, Number(e.target.value) || 0) })} />
               </div>
             </div>
@@ -491,8 +610,6 @@ export function BayarSection({
   onTipe,
   diskon,
   onDiskon,
-  qty,
-  onQty,
   waktuKirim,
   onWaktu,
   metode,
@@ -502,13 +619,15 @@ export function BayarSection({
   onTanggalTransaksi,
   waktuTiba,
   onWaktuTiba,
+  errorMetode,
+  errorTanggal,
+  errorKirim,
+  errorTiba,
 }: {
   tipe: 'TUNAI' | 'CICILAN'
   onTipe: (t: 'TUNAI' | 'CICILAN') => void
   diskon: number
   onDiskon: (n: number) => void
-  qty: number
-  onQty: (n: number) => void
   waktuKirim: string
   onWaktu: (v: string) => void
   metode: string
@@ -518,13 +637,19 @@ export function BayarSection({
   onTanggalTransaksi?: (v: string) => void
   waktuTiba: string
   onWaktuTiba: (v: string) => void
+  errorMetode?: string | null
+  errorTanggal?: string | null
+  errorKirim?: string | null
+  errorTiba?: string | null
 }) {
   return (
     <Card>
       <CardHeader className="text-lg font-semibold text-[#c2185b]">6. Pembayaran & jadwal</CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
         <div className="grid gap-1.5">
-          <Label>Tipe pembayaran</Label>
+          <Label>
+            Tipe pembayaran <span className="text-[#c2185b]">*</span>
+          </Label>
           <div className="flex gap-2">
             {(['TUNAI', 'CICILAN'] as const).map((t) => (
               <label key={t} className={`${RADIO_CARD} flex-1 text-center capitalize`}>
@@ -538,70 +663,216 @@ export function BayarSection({
         <div className="grid gap-1.5">
           <Label htmlFor="diskon">Diskon (Rp)</Label>
           <Input id="diskon" type="number" min={0} value={diskon} className="h-11 text-[15px]"
-            onChange={(e) => onDiskon(Number(e.target.value))} />
+            onChange={(e) => onDiskon(Math.max(0, Number(e.target.value) || 0))} />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="qty">Qty paket</Label>
-          <Input id="qty" type="number" min={1} value={qty} className="h-11 text-[15px]"
-            onChange={(e) => onQty(Math.max(1, Number(e.target.value) || 1))} />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="metode">Metode pembayaran</Label>
+          <Label htmlFor="metode">
+            Metode pembayaran <span className="text-[#c2185b]">*</span>
+          </Label>
           <select
             id="metode"
+            required
             value={metode}
             onChange={(e) => onMetode(e.target.value)}
+            aria-invalid={!!errorMetode}
+            aria-describedby={errorMetode ? 'err-metode' : undefined}
             className="h-11 rounded-lg border border-input bg-transparent px-2 text-[15px] focus-visible:ring-2 focus-visible:ring-[#e8b10c] focus-visible:outline-none"
           >
             {metodeOptions.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
+          {errorMetode && <p id="err-metode" className="text-sm text-red-600">{errorMetode}</p>}
         </div>
         {onTanggalTransaksi && (
         <div className="grid gap-1.5">
-          <Label htmlFor="tgl">Tanggal transaksi</Label>
+          <Label htmlFor="tgl">
+            Tanggal transaksi <span className="text-[#c2185b]">*</span>
+          </Label>
           <Input id="tgl" type="date" required value={tanggalTransaksi ?? ''} className="h-11 text-[15px]"
+            aria-invalid={!!errorTanggal}
+            aria-describedby={errorTanggal ? 'err-tanggal' : undefined}
             onChange={(e) => onTanggalTransaksi(e.target.value)} />
+          {errorTanggal && <p id="err-tanggal" className="text-sm text-red-600">{errorTanggal}</p>}
         </div>
         )}
         <div className="grid gap-1.5">
-          <Label htmlFor="kirim">Jadwal kirim</Label>
-          <Input id="kirim" type="datetime-local" value={waktuKirim} className="h-11 text-[15px]"
+          <Label htmlFor="kirim">
+            Jadwal kirim <span className="text-[#c2185b]">*</span>
+          </Label>
+          <Input id="kirim" type="datetime-local" required value={waktuKirim} className="h-11 text-[15px]"
+            aria-invalid={!!errorKirim}
+            aria-describedby={errorKirim ? 'err-kirim' : undefined}
             onChange={(e) => onWaktu(e.target.value)} />
+          {errorKirim && <p id="err-kirim" className="text-sm text-red-600">{errorKirim}</p>}
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="tiba">Jadwal tiba</Label>
-          <Input id="tiba" type="datetime-local" value={waktuTiba} className="h-11 text-[15px]"
+          <Label htmlFor="tiba">
+            Jadwal tiba <span className="text-[#c2185b]">*</span>
+          </Label>
+          <Input id="tiba" type="datetime-local" required value={waktuTiba} className="h-11 text-[15px]"
+            aria-invalid={!!errorTiba}
+            aria-describedby={errorTiba ? 'err-tiba' : undefined}
             onChange={(e) => onWaktuTiba(e.target.value)} />
+          {errorTiba && <p id="err-tiba" className="text-sm text-red-600">{errorTiba}</p>}
         </div>
       </CardContent>
     </Card>
   )
 }
 
-export function TotalBar({
+function fmtWaktu(v: string): string {
+  if (!v) return '—'
+  const d = new Date(v)
+  if (isNaN(+d)) return v
+  return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(d)
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="shrink-0 tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+export function OrderSummary({
+  paketNama,
+  qty,
+  hargaPaket,
+  dagingNama,
+  jeroanNama,
+  addonLines,
+  invLines,
+  base,
+  addonTotal,
+  invTotal,
+  diskon,
   total,
+  tipe,
+  metode,
+  waktuKirim,
+  waktuTiba,
   error,
   saving,
   submitLabel,
+  showSubmit = true,
 }: {
+  paketNama: string
+  qty: number
+  hargaPaket: number
+  dagingNama?: string
+  jeroanNama?: string
+  addonLines: SummaryLine[]
+  invLines: SummaryLine[]
+  base: number
+  addonTotal: number
+  invTotal: number
+  diskon: number
   total: number
+  tipe: string
+  metode: string
+  waktuKirim: string
+  waktuTiba: string
   error: string | null
   saving: boolean
   submitLabel: string
+  showSubmit?: boolean
 }) {
+  const addonCount = addonLines.reduce((s, l) => s + l.qty, 0)
+  const invCount = invLines.reduce((s, l) => s + l.qty, 0)
+
   return (
     <Card>
-      <CardContent className="space-y-3 p-5">
-        <div>
-          <div className="text-[11px] tracking-widest text-muted-foreground uppercase">Total bayar</div>
-          <div className="text-3xl font-light tracking-wide text-[#c2185b] tabular-nums">{fmtRp(total)}</div>
+      <CardHeader className="text-lg font-semibold text-[#c2185b]">Ringkasan order</CardHeader>
+      <CardContent className="space-y-3">
+        <div className="rounded-lg border bg-muted/30 p-3">
+          <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">Paket</p>
+          <p className="mt-0.5 font-medium">{paketNama || 'Belum dipilih'}</p>
+          {paketNama && (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {fmtNum(qty)} × {fmtRp(hargaPaket)}
+            </p>
+          )}
         </div>
-        {error && <p className="text-[15px] text-red-600">{error}</p>}
-        <Button type="submit" disabled={saving} className={`${GOLD_BTN} h-11 w-full text-base`}>
-          {saving ? 'Menyimpan…' : submitLabel}
-        </Button>
+
+        {(dagingNama || jeroanNama) && (
+          <div className="space-y-1 border-t pt-3 text-sm">
+            {dagingNama && <SummaryRow label="Daging" value={dagingNama} />}
+            {jeroanNama && <SummaryRow label="Jeroan" value={jeroanNama} />}
+          </div>
+        )}
+
+        {addonLines.length > 0 && (
+          <div className="space-y-1 border-t pt-3 text-sm">
+            <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">
+              Add-on ({fmtNum(addonCount)})
+            </p>
+            {addonLines.map((l) => (
+              <div key={l.id} className="flex justify-between gap-2">
+                <span className="min-w-0 truncate">
+                  {l.nama} × {fmtNum(l.qty)}
+                </span>
+                <span className="shrink-0 tabular-nums">{fmtRp(l.harga * l.qty)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {invLines.length > 0 && (
+          <div className="space-y-1 border-t pt-3 text-sm">
+            <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">
+              Tambahan ({fmtNum(invCount)})
+            </p>
+            {invLines.map((l) => (
+              <div key={l.id} className="flex justify-between gap-2">
+                <span className="min-w-0 truncate">
+                  {l.nama} × {fmtNum(l.qty)}
+                  {l.satuan ? ` ${l.satuan}` : ''}
+                </span>
+                <span className="shrink-0 tabular-nums">{fmtRp(l.harga * l.qty)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-1 border-t pt-3 text-sm">
+          <SummaryRow label="Paket" value={fmtRp(base)} />
+          <SummaryRow label="Add-on" value={fmtRp(addonTotal)} />
+          <SummaryRow label="Tambahan" value={fmtRp(invTotal)} />
+          {diskon > 0 && <SummaryRow label="Diskon" value={`− ${fmtRp(diskon)}`} />}
+          <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
+            <span>Total</span>
+            <span className="text-[#c2185b] tabular-nums">{fmtRp(total)}</span>
+          </div>
+        </div>
+
+        <div className="space-y-0.5 border-t pt-3 text-sm">
+          <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">Pembayaran</p>
+          <p className="font-medium capitalize">
+            {tipe} · {metode}
+          </p>
+          {(waktuKirim || waktuTiba) && (
+            <p className="text-xs text-muted-foreground">
+              {waktuKirim ? `Kirim ${fmtWaktu(waktuKirim)}` : ''}
+              {waktuKirim && waktuTiba ? ' · ' : ''}
+              {waktuTiba ? `Tiba ${fmtWaktu(waktuTiba)}` : ''}
+            </p>
+          )}
+        </div>
+
+        {error && (
+          <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        {showSubmit && (
+          <Button type="submit" disabled={saving} className={`${GOLD_BTN} hidden h-11 w-full text-base lg:inline-flex`}>
+            {saving ? 'Menyimpan…' : submitLabel}
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

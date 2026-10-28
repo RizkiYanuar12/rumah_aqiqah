@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { requireRole } from '@/lib/auth'
+import { requireRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { listResep } from '@/lib/resep'
 import FormUbahOrder, { type UbahInitial } from './form-ubah-order'
@@ -7,12 +7,14 @@ import FormUbahOrder, { type UbahInitial } from './form-ubah-order'
 const TERMINAL = ['BATAL']
 
 // datetime-local butuh 'YYYY-MM-DDTHH:mm' (input tidak paham ISO + zona).
+//Always WIB (UTC+7, tanpa DST) supaya jadwal tak geser 7 jam saat server UTC.
 const toLocalInput = (iso: string | null) => {
   if (!iso) return ''
   const d = new Date(iso)
   if (isNaN(+d)) return ''
+  const wib = new Date(d.getTime() + 7 * 3600_000)
   const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+  return `${wib.getUTCFullYear()}-${p(wib.getUTCMonth() + 1)}-${p(wib.getUTCDate())}T${p(wib.getUTCHours())}:${p(wib.getUTCMinutes())}`
 }
 
 export default async function UbahOrderPage({ params }: { params: Promise<{ id: string }> }) {

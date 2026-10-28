@@ -1,7 +1,7 @@
-import {NextResponse} from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { catatMasuk, hapusStokLokasi, ubahMinStock } from '@/lib/pusat'
+import { catatMasuk, hapusStokLokasi, ubahBarangLokasi } from '@/lib/inventory/pusat'
 
 // GET /api/inventory/cabang
 export async function GET(req: Request) {
@@ -64,17 +64,22 @@ export async function POST(req: Request) {
     return NextResponse.json(result, { status: 201 })
 }
 
-// PATCH /api/inventory/cabang — ubah min. stok 1 SKU di lokasi CSO.
+// PATCH /api/inventory/cabang — ubah data barang + stok di lokasi CSO.
 export async function PATCH(req: Request) {
     const auth = await requireApiRole(['cso'])
     if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
     if (!auth.idLokasi) return NextResponse.json({ error: 'Akun belum punya lokasi' }, { status: 400 })
 
     const body = await req.json().catch(() => null)
-    const result = await ubahMinStock(await createAdminClient(), {
+    const result = await ubahBarangLokasi(await createAdminClient(), {
         id_lokasi: auth.idLokasi,
+        sku: String(body?.sku ?? ''),
         nama_barang: String(body?.nama_barang ?? ''),
-        min_stock: body?.min_stock == null ? null : Number(body.min_stock),
+        kategori: body?.kategori == null ? null : String(body.kategori),
+        satuan: body?.satuan == null ? null : String(body.satuan),
+        stock: body?.stock == null || body.stock === '' ? null : Number(body.stock),
+        hpp_average: body?.hpp_average == null || body.hpp_average === '' ? null : Number(body.hpp_average),
+        min_stock: body?.min_stock == null || body.min_stock === '' ? null : Number(body.min_stock),
     })
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
     return NextResponse.json(result)

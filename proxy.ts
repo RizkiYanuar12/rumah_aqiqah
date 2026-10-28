@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { publicRoute, HOME_BY_ROLE, canAccess } from '@/lib/access';
+import { publicRoute, HOME_BY_ROLE, canAccess } from '@/lib/auth/access';
 
 export async function proxy(request: NextRequest) {
     // Setiap setAll harus membangun ulang response: session token hanya sampai

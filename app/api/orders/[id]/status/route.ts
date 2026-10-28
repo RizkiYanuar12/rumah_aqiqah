@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { requireApiRole } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ORDER_STATUS } from '@/lib/order-status'
+import { ORDER_STATUS } from '@/lib/orders/status'
+import { tutupVaAktif, vaAktif } from '@/lib/payments/pembayaran'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiRole(['cso', 'branch_manager'])
@@ -28,6 +29,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { error: eUp } = await admin.from('orders').update({ status: to }).eq('id_pesanan', id)
   if (eUp) return NextResponse.json({ error: eUp.message }, { status: 500 })
+
+  // Normal VA terikat nominal. Saat order dibatalkan, VA aktif tidak boleh
+  // tetap bisa dibayar. Kegagalan cancel tidak membatalkan perubahan status.
+  if (to === 'BATAL') {
+    const va = await vaAktif(admin, id)
+    if (va) {
+      const tutup = await tutupVaAktif(admin, va, 'Pesanan dibatalkan')
+      if (!tutup.ok) {
+        console.warn('Gagal menonaktifkan VA saat order BATAL', tutup.code, tutup.message)
+      }
+    }
+  }
 
   const { error: eLog } = await admin.from('status_history').insert({
     order_id: id,

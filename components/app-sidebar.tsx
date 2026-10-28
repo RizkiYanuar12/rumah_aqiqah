@@ -23,9 +23,8 @@ const ROLE_LABEL: Record<string, { code: string; label: string }> = {
     seo: { code: 'SE', label: 'SEO' },
     cso: { code: 'CS', label: 'CSO' },
     finance: { code: 'FN', label: 'Finance' },
-    inventory: { code: 'IN', label: 'Inventory' },
-    branch_manager: { code: 'BM', label: 'Branch Manager' },
-    admin: { code: 'AD', label: 'Admin' },
+    inventory: { code: 'INV', label: 'Inventory' },
+    branch_manager: { code: 'BM', label: 'Branch Manager' }
 }
 
 const ACTIVE = 'data-active:bg-[#c2185b] data-active:text-white data-active:font-semibold data-active:shadow-sm'

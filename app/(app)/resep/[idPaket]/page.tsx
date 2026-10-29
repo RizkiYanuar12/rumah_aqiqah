@@ -7,7 +7,7 @@ import { listResep } from '@/lib/resep'
 import FormResep from './form-resep'
 
 export default async function ResepUbahPage({ params }: { params: Promise<{ idPaket: string }> }) {
-  const { idLokasi } = await requireRole(['cso'])
+  const { idLokasi } = await requireRole(['cso', 'branch manager'])
   const { idPaket } = await params
   if (!idLokasi) {
     return (

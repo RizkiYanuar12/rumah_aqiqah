@@ -4,7 +4,7 @@
 - **Product Name / Feature:** Rumah Akikah Management System (RAMS)
 - **Target Release:** MVP — Modul Order Flow Inti (fase 1)
 - **Status:** Draft
-- **Authors & Key Stakeholders:** NUMB (Product Owner / Developer), SEO, CSO, Inventory, Finance, Branch Manager, Admin
+- **Authors & Key Stakeholders:** NUMB (Product Owner / Developer), SEO, CSO, Inventory, Finance, Branch Manager
 
 ## 2. Problem Statement & Business Opportunity
 - **What problem are we solving?**
@@ -17,8 +17,8 @@
   - **Finance** — memantau status pembayaran (terverifikasi otomatis via webhook Nespay), menindaklanjuti pembayaran invalid
   - **Vendor Masak** — **tidak memiliki akses sistem**; koordinasi produksi (terima, proses, kirim) tetap dilakukan via WA ke CSO
   - **Branch Manager** — memantau laporan transaksi & operasional lintas role
+  - **Branch Operation** — operasional cabang (proses order, pengajuan, stok lokasi) untuk cabang yang ditugaskan
   - **SEO** — login & input data lead (nama, no. HP, sumber) setelah closing di WA, sebelum diteruskan ke CSO
-  - **Admin** — role terpisah (bukan rangkap role operasional lain), mengelola user, role, dan permission di dalam sistem
 
 ## 3. Goals & Success Metrics (KPIs)
 - **Primary Metric (North Star):** Waktu rata-rata dari "lead masuk" sampai "order terverifikasi & masuk tahap produksi" berkurang signifikan dibanding proses lintas-aplikasi saat ini.
@@ -37,12 +37,11 @@
   - Update angka stock oleh Inventory
   - Generate Virtual Account (VA) pembayaran, atau tandai pembayaran Cash untuk walk-in
   - Verifikasi pembayaran otomatis via webhook Nespay (khusus VA); pembayaran Cash dikonfirmasi manual oleh CSO/Finance
-  - Role-based login & access control (SEO, CSO, Inventory, Finance, Branch Manager)
+  - Role-based login & access control (SEO, CSO, Inventory, Finance, Branch Manager, Branch Operation)
 - **In-Scope (P1):**
   - Update status produksi manual oleh CSO (berdasarkan koordinasi WA dengan Vendor Masak)
 - **In-Scope (P2):**
   - Dashboard laporan Branch Manager (agregat order, pembayaran, operasional)
-  - Modul manajemen user & role oleh Admin
 - **In-Scope (P3 — pengganti fungsi Jurnal.id):**
   - Modul akuntansi/keuangan (jurnal, laporan keuangan formal)
 - **Out of Scope (fase awal):**
@@ -71,8 +70,8 @@
 | FR-06 | Order Masuk Tahap Produksi | Sebagai CSO, saya ingin order otomatis berubah status setelah pembayaran valid agar saya tahu kapan harus koordinasi ke Vendor Masak via WA | **Given** pembayaran ditandai valid, **When** status order berubah, **Then** order tampil di daftar "siap produksi" milik CSO | Should Have |
 | FR-07 | Update Status Produksi Manual | Sebagai CSO, saya ingin update status pesanan berdasarkan info dari Vendor Masak (via WA) agar Branch Manager tahu progres | **Given** CSO menerima info progres dari Vendor Masak via WA, **When** CSO update status di sistem, **Then** status tersimpan (diproses/selesai) | Should Have |
 | FR-08 | Dashboard Laporan | Sebagai Branch Manager, saya ingin melihat ringkasan transaksi & operasional lintas role | **Given** ada order baru/berubah status, **When** Branch Manager buka dashboard, **Then** data ter-update tanpa perlu rekap manual | Should Have |
-| FR-09 | Role-Based Access Control | Sebagai admin sistem, saya ingin tiap role hanya mengakses data sesuai kewenangannya | **Given** user login dengan role tertentu, **When** mengakses sistem, **Then** hanya menu & data sesuai role yang tampil | Must Have |
-| FR-11 | Reset Password & Audit Akses | Sebagai Admin, saya ingin reset password user dan melihat log akses agar keamanan sistem terjaga | **Given** user lupa password atau ada aktivitas mencurigakan, **When** Admin cek/reset, **Then** password ter-reset & log akses tercatat | Could Have |
+| FR-09 | Role-Based Access Control | Sebagai sistem, saya ingin tiap role hanya mengakses data sesuai kewenangannya | **Given** user login dengan role tertentu, **When** mengakses sistem, **Then** hanya menu & data sesuai role yang tampil | Must Have |
+| FR-11 | Reset Password Mandiri | Sebagai pengguna, saya ingin reset password sendiri saat lupa agar keamanan sistem terjaga | **Given** pengguna melakukan reset mandiri, **When** verifikasi berlalu, **Then** password ter-reset dan akses tercatat | Could Have |
 | FR-12 | Pembayaran Invalid → Ulang Bayar | Sebagai CSO/Finance, saya ingin menghubungi customer saat pembayaran invalid agar customer bisa membayar ulang | **Given** webhook menandai pembayaran invalid, **When** CSO/Finance menghubungi customer, **Then** order tetap berstatus "pending" menunggu pembayaran ulang (bukan dibatalkan) | Should Have |
 | FR-ADD (DRAFT 25 Sep 2026, belum dikunci) | Additional & Upgrade Isi Box | Sebagai CSO, saya ingin menambah item opsional berbayar (snack box, souvenir, buah, tumisan, mix ayam & telur) ke order agar harga final terhitung otomatis | **Given** order paket sudah dipilih, **When** CSO tambah add-on + qty, **Then** `hargaFinal` = harga paket + Σ(qty × hargaSatuan add-on) − diskon; add-on fisik mengurangi stock, add-on makanan tidak | Should Have |
 

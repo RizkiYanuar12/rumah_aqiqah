@@ -15,7 +15,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
 import { usePathname } from 'next/navigation';
-import LogoutButton from '@/components/logout';
+import { useNotifikasi } from '@/app/(app)/notifikasi-provider'
+import LogoutButton from '@/components/logout'
 
 type item = { href: string; label: string }
 
@@ -38,6 +39,7 @@ export default function AppSideBar({
 }) {
     const pathname = usePathname()
     const [logoOk, setLogoOk] = useState(true)
+    const { pendingCount } = useNotifikasi()
 
     return (
         <Sidebar>
@@ -76,9 +78,14 @@ export default function AppSideBar({
                                             render={<Link href={item.href} />}
                                             isActive={aktif}
                                             className={`h-11 rounded-lg px-3 text-[15px] font-medium hover:bg-[#c2185b]/10 hover:text-[#c2185b] [&_svg]:size-5 ${ACTIVE}`}
-                                        >
-                                            {item.label}
-                                        </SidebarMenuButton>
+                                >
+                                    {item.label}
+                                    {item.href === '/inventory/history' && pendingCount > 0 && (
+                                        <span className="ml-auto rounded-full bg-[#e8b10c] px-2 py-0.5 text-xs font-bold text-[#4a0f30]">
+                                            {pendingCount}
+                                        </span>
+                                    )}
+                                </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 )
                             })}

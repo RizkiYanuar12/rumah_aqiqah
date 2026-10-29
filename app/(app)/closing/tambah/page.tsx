@@ -4,7 +4,7 @@ import { listResep } from '@/lib/resep'
 import FormClosingBaru from './form-closing-baru'
 
 export default async function TambahClosingPage() {
-  const { idLokasi } = await requireRole(['seo', 'cso'])
+  const { idLokasi } = await requireRole(['seo', 'cso', 'branch_manager'])
 
   const admin = createAdminClient()
   const [{ data: paket }, { data: olahan }, grupResep] = await Promise.all([

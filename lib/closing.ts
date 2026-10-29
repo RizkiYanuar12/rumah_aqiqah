@@ -26,12 +26,6 @@ export const NO_HP = /^08\d{8,10}$/
 
 export const KODE_POS = /^\d{5}$/
 
-export const isJenisCustomerValid = (jenisCustomer: unknown): jenisCustomer is (typeof JENIS_CUSTOMER)[number] =>
-  (JENIS_CUSTOMER as readonly string[]).includes(jenisCustomer as string)
-
-export const isSumberValid = (sumberInformasi: unknown): sumberInformasi is (typeof SUMBER_INFORMASI)[number] =>
-  (SUMBER_INFORMASI as readonly string[]).includes(sumberInformasi as string)
-
 export const isNoHpValid = (hp: unknown): hp is string =>
   typeof hp === 'string' && NO_HP.test(hp)
 

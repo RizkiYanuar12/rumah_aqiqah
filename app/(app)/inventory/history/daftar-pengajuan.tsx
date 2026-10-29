@@ -45,21 +45,21 @@ export default function DaftarPengajuan({
   const router = useRouter()
   const [prevInitial, setPrevInitial] = useState(initialRows)
   const [rows, setRows] = useState(initialRows)
+  const statusNorm = (s: string | null | undefined) => String(s ?? '').trim().toUpperCase()
+  const nDiajukan = rows.filter((r) => statusNorm(r.status) === 'DIAJUKAN').length
   if (prevInitial !== initialRows) {
     setPrevInitial(initialRows)
     setRows(initialRows)
   }
-  const [filter, setFilter] = useState('semua')
+  const [filter, setFilter] = useState(mode === 'pusat' ? 'DIAJUKAN': 'semua')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [tolakKey, setTolakKey] = useState<string | null>(null)
   const [alasanTolak, setAlasanTolak] = useState('')
-
   const tampil = useMemo(
-    () => (filter === 'semua' ? rows : rows.filter((r) => r.status === filter)),
+    () => (filter === 'semua' ? rows : rows.filter((r) => statusNorm(r.status) === filter)),
     [rows, filter],
   )
-  const nDiajukan = rows.filter((r) => r.status === 'DIAJUKAN').length
 
   async function batalkan(batchId: string, sku: string) {
     setBusy(`${batchId}:${sku}`)
@@ -156,7 +156,8 @@ export default function DaftarPengajuan({
           Inventory · {mode === 'cabang' ? namaLokasi : 'Gudang Pusat'}
         </p>
         <h1 className="mt-1 font-heading text-4xl font-semibold tracking-[-0.03em] text-[#4a0f30]">
-          History Pengajuan
+          {mode === 'pusat' ? `Pengajuan Restock`: 'History Pengajuan'}
+
         </h1>
         <span aria-hidden className="mt-2 block h-1 w-12 rounded-full bg-linear-to-r from-[#c2185b] to-[#e8b10c]" />
         <p className="mt-3 text-sm text-muted-foreground">
@@ -171,7 +172,10 @@ export default function DaftarPengajuan({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {(['semua', ...PENGAJUAN_STATUS.filter((s) => s !== 'DIBATALKAN')] as const).map((s) => (
+        {(mode === 'pusat'
+          ? [...PENGAJUAN_STATUS.filter((s) => s !== 'DIBATALKAN'), 'semua']
+          : ['semua', ...PENGAJUAN_STATUS.filter((s) => s !== 'DIBATALKAN')]
+        ).map((s) => (
           <button
             key={s}
             type="button"
@@ -185,7 +189,7 @@ export default function DaftarPengajuan({
           >
             {s === 'semua' ? 'Semua' : s}
             <span className={filter === s ? 'opacity-80' : 'text-muted-foreground'}>
-              {s === 'semua' ? rows.length : rows.filter((r) => r.status === s).length}
+              {s === 'semua' ? rows.length : rows.filter((r) => statusNorm(r.status) === s).length}
             </span>
           </button>
         ))}
@@ -226,10 +230,9 @@ export default function DaftarPengajuan({
                                      {r.status}
                                    </span>
                                  </div>
-                                 <div className="text-[15px] tabular-nums text-muted-foreground">
-                                   {r.sku} × {fmtNum(r.qty)}
-                                   {mode === 'pusat' && <span> (Pusat: {stokPusat[r.sku] ?? 0})</span>}
-                                 </div>
+                                  <div className="text-[15px] tabular-nums text-muted-foreground">
+                                    <span>{fmtNum(r.qty)} pcs</span>
+                                  </div>
                                  {r.status === 'DITOLAK' && (
                                    <div className="text-sm text-red-700">
                                      <span className="font-medium">Alasan:</span>{' '}

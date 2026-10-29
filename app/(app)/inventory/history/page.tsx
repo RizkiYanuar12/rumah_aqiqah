@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import DaftarPengajuan, { type PengajuanRow } from './daftar-pengajuan'
 
 export default async function PengajuanPage() {
-  const { role, idLokasi } = await requireRole(['cso', 'inventory'])
+  const { role, idLokasi } = await requireRole(['cso', 'branch_manager', 'inventory'])
   const admin = createAdminClient()
 
   let q = admin

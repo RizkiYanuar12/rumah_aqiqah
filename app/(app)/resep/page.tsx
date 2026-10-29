@@ -4,7 +4,7 @@ import { listResep } from '@/lib/resep'
 import DaftarResep from './daftar-resep'
 
 export default async function ResepPage() {
-  const { idLokasi } = await requireRole(['cso'])
+  const { idLokasi } = await requireRole(['cso', 'branch manager'])
   if (!idLokasi) {
     return (
       <div className="mx-auto w-full max-w-5xl">

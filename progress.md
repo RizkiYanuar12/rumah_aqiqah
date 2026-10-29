@@ -1,6 +1,6 @@
 # Progress RAMS (Rumah Akikah Management System)
 
-Terakhir update: 23 Okt 2026 (refactor `lib/` + CRUD Resep + alur pengajuan 6 status + NICEPAY M1). Sumber acuan: `PRD.md`. Istilah resmi: **Closing** (tabel `closing`; `leads` usang).
+Terakhir update: 28 Okt 2026 (rencana notifikasi pengajuan cabang → pusat; belum dieksekusi). Sumber acuan: `PRD.md`. Istilah resmi: **Closing** (tabel `closing`; `leads` usang).
 
 ## 1. PRD dibaca
 - MVP = alur Order inti: SEO input closing → CSO input order + VA/Cash → produksi manual via WA → laporan BM.
@@ -246,7 +246,7 @@ Status: `DIAJUKAN → DISETUJUI → DIKIRIM → DITERIMA`, plus `DITOLAK` & `DIB
 - **FR-05 (webhook)** ✓ ter-cover (notifikasi NICEPAY + Inquiry manual "Cek status").
 - **FR-05b (konfirmasi Cash)** ✓ ter-cover (catat bayar manual oleh finance/cso).
 - **FR-06** ✗ **belum**: badge lunas = sinyal, auto-`diproses` belum (§13b.7, §14d.6).
-- **FR-08 (dashboard Branch Manager)** ✗ belum; **FR-11 (reset password & audit akses)** ✗ belum (ada `status_history` order, bukan log akses user).
+- **FR-08 (dashboard Branch Manager)** ✗ belum; **FR-11 (reset password mandiri pengguna)** ✗ belum (Could Have; tanpa modul Admin)
 - **FR-01/02/03/07/12** ✓ ter-cover.
 - **FR-ADD (draft)** ter-cover parsial (add-on + `harga_final` sudah ada; status desain masih DRAFT di PRD §5).
 
@@ -449,3 +449,39 @@ Status: `DIAJUKAN → DISETUJUI → DIKIRIM → DITERIMA`, plus `DITOLAK` & `DIB
 - Troubleshooting 26 Okt: daftar kosong padahal baris ada = migrasi §1d belum dijalankan (`ERROR 42703: column pengajuan.alasan_tolak does not exist`). `page.tsx` kini menampilkan error query, bukan diam-diam kosong.
 - Uji manual belum: jalankan migrasi; inventory tolak tanpa alasan → tombol tidak aktif/400; tolak dengan alasan → DB terisi + CSO melihat alasan/email; user auth dihapus → `ditolak_oleh` null, alasan tetap.
 
+## 24. Notifikasi pengajuan masuk cabang → pusat (RENCANA, belum dieksekusi)
+> Keputusan 28 Okt 2026: **polling saja** (tanpa Realtime/Redis) agar hemat free tier Supabase. Penerima: role `inventory` (pusat). Fokus: pengajuan restock berstatus `DIAJUKAN`.
+
+- Sumber event: `POST /api/pengajuan` oleh CSO → baris `pengajuan` status `DIAJUKAN`.
+- UI: badge jumlah + toast “X pengajuan baru” di `/inventory/history` saat count naik; baseline di-reset setelah aksi setuju/tolak/kirim.
+- Polling 45–60 detik; hentikan saat `document.hidden`; refetch saat tab kembali visible.
+- Query ringan: count `DIAJUKAN` + list existing; jangan ambil semua kolom tiap polling.
+- Index disarankan: `pengajuan(status, created_at)` atau `(status, id_lokasi, created_at)`.
+- Tanpa Redis pada fase ini; pertimbangkan hanya jika volume naik dan query count terukur mahal.
+- Catatan: `pengajuan` = 1 baris per item. Badge memakai jumlah baris `DIAJUKAN`; jika notifikasi harus per batch, perlu count `distinct batch_id` via RPC.
+- File rencana:
+  - `app/(app)/inventory/history/daftar-pengajuan.tsx` — interval, baseline, badge/toast, pause saat hidden.
+  - `app/(app)/inventory/history/page.tsx` — initial count/rows.
+  - `app/api/pengajuan/route.ts` — GET opsional `?status=DIAJUKAN` atau endpoint count ringan.
+- Checklist eksekusi:
+  - [ ] Tambah query count/status.
+  - [ ] Implement polling + baseline + toast/badge.
+  - [ ] Tambah index DB.
+  - [ ] Uji: CSO buat pengajuan → pusat dapat notifikasi; approve → badge turun; tab hidden berhenti polling; tidak ada notifikasi ganda.
+- Status: **belum dieksekusi**.
+
+
+## 25. Notifikasi sidebar badge & tabel pengajuan (dieksekusi)
+- Role inventory: badge pending DIAJUKAN di sidebar via NotifikasiProvider (realtime + initial fetch; polling/listener redundant dihapus).
+- Tab filter di history pengajuan (mode pusat) menampilkan Semua paling kanan.
+- Nama tab menu inventory (role inventory) menjadi Pengajuan Restock; cso tetap History Pengajuan.
+- Judul halaman masih History Pengajuan (opsional ganti ke Pengajuan Restock).
+- Cleanup dead exports isJenisCustomerValid, isSumberValid.
+
+### Role yang ada (app_metadata.role / ROUTE_ACCESS)
+- seo
+- cso
+- inventory
+- finance
+- branch_manager
+- branch_operation

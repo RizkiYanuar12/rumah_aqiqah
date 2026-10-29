@@ -3,6 +3,8 @@ import { requireApiRole } from '@/lib/auth/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buatPengajuan, batalPengajuan } from '@/lib/inventory/pengajuan'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const auth = await requireApiRole(['cso', 'inventory'])
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -19,7 +21,7 @@ export async function GET() {
   }
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ pengajuan: data })
+  return NextResponse.json({ pengajuan: data }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function POST(req: Request) {

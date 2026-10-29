@@ -5,7 +5,7 @@ import { riwayatBatch, tagihanBatch } from '@/lib/payments/pembayaran'
 import DaftarClosing from './daftar-closing'
 
 export default async function ClosingPage() {
-  const { userId, role, idLokasi } = await requireRole(['seo', 'cso'])
+  const { userId, role, idLokasi } = await requireRole(['seo', 'cso', 'branch_manager'])
 
   const admin = createAdminClient()
   let q = admin

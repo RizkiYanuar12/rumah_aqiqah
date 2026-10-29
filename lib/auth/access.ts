@@ -3,7 +3,7 @@ export const ROUTE_ACCESS: Record<string, string[]> = {
     cso: ['/closing', '/orders', '/inventory/cabang', '/inventory/history', '/resep'],
     finance: ['/orders'],
     inventory: ['/inventory/pusat','/inventory/history'],
-    branch_manager: ['/orders'],
+    branch_manager: ['/closing', '/orders', '/inventory/cabang', '/inventory/history', '/resep'],
 }
 
 export const ROUTE_LABELS: Record <string, string> = {
@@ -21,10 +21,10 @@ export const PUBLIC_ROUTES= ['/login', '/auth', '/api/webhook']
 
 export const HOME_BY_ROLE: Record<string, string> = {
     seo: '/closing',
-    cso: '/orders',
-    finance: '/orders',
+    cso: '/closing',
+    finance: '/closing',
     inventory: '/inventory/pusat',
-    branch_manager: '/orders'
+    branch_manager: '/closing'
 }
 
 const match = (path: string, route: string) =>

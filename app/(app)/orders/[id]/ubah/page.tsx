@@ -18,7 +18,7 @@ const toLocalInput = (iso: string | null) => {
 }
 
 export default async function UbahOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const { idLokasi } = await requireRole(['seo', 'cso'])
+  const { idLokasi } = await requireRole(['seo', 'cso', 'branch_manager'])
   const { id } = await params
 
   const admin = createAdminClient()

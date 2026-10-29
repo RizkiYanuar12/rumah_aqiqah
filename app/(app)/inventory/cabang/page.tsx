@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import DaftarInventory from './daftar-inventory'
 
 export default async function InventoryCabangPage() {
-  const { idLokasi } = await requireRole(['cso'])
+  const { idLokasi } = await requireRole(['cso', 'branch_manager'])
   if (!idLokasi) {
     return (
       <div className="mx-auto w-full max-w-[1600px]">
